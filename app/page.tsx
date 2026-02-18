@@ -1,3 +1,4 @@
+// Forced rebuild to investigate 404
 import Link from 'next/link';
 import NextImage from 'next/image';
 import { createClient } from '@/lib/supabase/server';
