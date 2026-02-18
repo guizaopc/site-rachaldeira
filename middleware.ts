@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export function middleware(request) {
+export function middleware(request: NextRequest) {
     console.log('Middleware hit:', request.nextUrl.pathname)
     return NextResponse.next()
 }
