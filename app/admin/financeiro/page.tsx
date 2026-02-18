@@ -11,6 +11,7 @@ import { PiggyBank, ArrowUpCircle, ArrowDownCircle, Plus, Wallet } from 'lucide-
 import FinancialTransactionsList from './financial-transactions';
 import MonthlyFeesList from './monthly-fees';
 
+export const dynamic = 'force-dynamic';
 
 export default async function FinancialPage() {
     const supabase = await createClient();

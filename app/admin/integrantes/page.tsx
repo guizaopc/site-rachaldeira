@@ -30,16 +30,26 @@ export default function AdminIntegrantesPage() {
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [currentUserEmail, setCurrentUserEmail] = useState('');
 
     useEffect(() => {
+        checkUser();
         loadMembers();
     }, []);
+
+    const checkUser = async () => {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+            setCurrentUserEmail(user.email);
+        }
+    };
 
     const loadMembers = async () => {
         const supabase = createClient();
         const { data } = await supabase
             .from('members')
-            .select('*')
+            .select('*, profiles(role)')
             .order('name');
 
         setMembers(data || []);
@@ -175,6 +185,25 @@ export default function AdminIntegrantesPage() {
         }
     };
 
+    const handleRoleUpdate = async (memberId: string, newRole: string) => {
+        try {
+            const supabase = createClient();
+            const { error } = await supabase.rpc('update_member_role', {
+                target_member_id: memberId,
+                new_role: newRole
+            });
+
+            if (error) throw error;
+
+            // Atualizar lista para refletir mudança
+            loadMembers();
+            alert('Permissão atualizada com sucesso!');
+        } catch (err: any) {
+            console.error(err);
+            alert('Erro ao atualizar permissão: ' + err.message);
+        }
+    };
+
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
     }
@@ -202,6 +231,7 @@ export default function AdminIntegrantesPage() {
                                     <TableHead>Posição</TableHead>
                                     <TableHead>Idade</TableHead>
                                     <TableHead>Telefone</TableHead>
+                                    {currentUserEmail === 'gr96445@gmail.com' && <TableHead>Função</TableHead>}
                                     <TableHead className="text-right">Ações</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -213,6 +243,23 @@ export default function AdminIntegrantesPage() {
                                         <TableCell>{member.position || '-'}</TableCell>
                                         <TableCell>{member.age || '-'}</TableCell>
                                         <TableCell>{member.phone || '-'}</TableCell>
+                                        {currentUserEmail === 'gr96445@gmail.com' && (
+                                            <TableCell>
+                                                <Select
+                                                    defaultValue={member.profiles?.[0]?.role || 'user'}
+                                                    onValueChange={(value) => handleRoleUpdate(member.id, value)}
+                                                >
+                                                    <SelectTrigger className="w-[110px] h-8">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="user">Membro</SelectItem>
+                                                        <SelectItem value="director">Diretor</SelectItem>
+                                                        <SelectItem value="admin">Admin</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                        )}
                                         <TableCell className="text-right">
                                             <Button
                                                 variant="ghost"

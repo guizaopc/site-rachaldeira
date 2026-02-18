@@ -55,10 +55,10 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                             <NextImage
                                 src="https://pqroxmeyuicutatbessb.supabase.co/storage/v1/object/public/Fotos/logo%20rachaldeira.png"
                                 alt="Rachaldeira Logo"
-                                width={120}
-                                height={120}
-                                className="object-contain -mt-6 drop-shadow-2xl"
-                                sizes="(max-width: 768px) 100px, 120px"
+                                width={175}
+                                height={175}
+                                className="object-contain -mt-7 drop-shadow-2xl"
+                                sizes="(max-width: 768px) 130px, 175px"
                             />
                         </Link>
 

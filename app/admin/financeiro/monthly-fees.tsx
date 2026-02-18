@@ -41,9 +41,23 @@ export default function MonthlyFees({ members, transactions }: MonthlyFeesProps)
     // Filter transactions for selected period and category 'monthly_fee'
     const periodTransactions = transactions.filter(t => {
         if (!t.transaction_date || t.category !== 'monthly_fee') return false;
-        const date = new Date(t.transaction_date);
-        return date.getMonth().toString() === selectedMonth &&
-            date.getFullYear().toString() === selectedYear;
+
+        // Parse date manually to avoid timezone issues
+        // format: YYYY-MM-DD
+        const [year, month, day] = t.transaction_date.split('-').map(Number);
+
+        console.log('Checking transaction:', {
+            t_date: t.transaction_date,
+            parsed: { year, month, day },
+            target: { selectedMonth, selectedYear },
+            match: (month - 1).toString() === selectedMonth && year.toString() === selectedYear
+        });
+
+        // Month in Date object is 0-indexed, but in DB it's 1-indexed (from the split)
+        // However, the selectedMonth is 0-indexed (from getMonth())
+        // So we need to subtract 1 from the split month to match selectedMonth
+        return (month - 1).toString() === selectedMonth &&
+            year.toString() === selectedYear;
     });
 
     const getPaymentStatus = (memberId: string) => {
@@ -58,8 +72,9 @@ export default function MonthlyFees({ members, transactions }: MonthlyFeesProps)
         if (!selectedMember) return;
 
         const supabase = createClient();
-        // Create date for the 1st of selected month/year
-        const transactionDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 1).toISOString().split('T')[0];
+        // Create date for the 1st of selected month/year manually to avoid timezone issues
+        const monthStr = (parseInt(selectedMonth) + 1).toString().padStart(2, '0');
+        const transactionDate = `${selectedYear}-${monthStr}-01`;
 
         const { error } = await supabase
             .from('financial_transactions')
