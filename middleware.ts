@@ -11,11 +11,10 @@ export async function middleware(request: NextRequest) {
         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
         if (!supabaseUrl || !supabaseAnonKey) {
-            console.error('Middleware Error: Missing Supabase environment variables')
             return new NextResponse(
                 JSON.stringify({
-                    error: 'Service Unavailable',
-                    message: 'Missing Supabase configuration. Please check environment variables.',
+                    error: 'Configuração Incompleta',
+                    message: 'As chaves do Supabase não foram encontradas na Vercel.',
                 }),
                 { status: 503, headers: { 'content-type': 'application/json' } }
             )
@@ -42,15 +41,11 @@ export async function middleware(request: NextRequest) {
             }
         )
 
-        // IMPORTANT: Avoid writing any logic between createServerClient and
-        // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-        // issues with users being randomly logged out.
-
         const {
             data: { user },
         } = await supabase.auth.getUser()
 
-        // Public routes that don't require authentication
+        // Rotas públicas
         const isPublicRoute =
             request.nextUrl.pathname === '/' ||
             request.nextUrl.pathname.startsWith('/login') ||
@@ -64,17 +59,13 @@ export async function middleware(request: NextRequest) {
             request.nextUrl.pathname.startsWith('/rank') ||
             request.nextUrl.pathname.startsWith('/integrantes');
 
-        // Protected routes check
         if (!user && !isPublicRoute) {
-            // No user and not public, redirect to login
             const url = request.nextUrl.clone()
             url.pathname = '/login'
             return NextResponse.redirect(url)
         }
 
-        // Admin routes check
         if (user && request.nextUrl.pathname.startsWith('/admin')) {
-            // Allow access to /admin/perfil for any authenticated user
             if (request.nextUrl.pathname.startsWith('/admin/perfil')) {
                 return supabaseResponse
             }
@@ -86,7 +77,6 @@ export async function middleware(request: NextRequest) {
                 .single()
 
             if (profile?.role !== 'admin' && profile?.role !== 'director') {
-                // Not admin or director, redirect to home
                 const url = request.nextUrl.clone()
                 url.pathname = '/'
                 return NextResponse.redirect(url)
@@ -94,16 +84,12 @@ export async function middleware(request: NextRequest) {
         }
 
         return supabaseResponse
-    } catch (e) {
-        // If you are here, a Supabase client could not be created!
-        // This is likely because you have not set up environment variables.
-        // Check out http://localhost:3000 for Next Steps.
-        console.error('Middleware Error:', e)
-        return NextResponse.next({
-            request: {
-                headers: request.headers,
-            },
-        })
+    } catch (error: any) {
+        console.error('CRITICAL MIDDLEWARE ERROR:', error)
+        return new NextResponse(
+            `Erro Interno no Middleware: ${error.message || 'Erro desconhecido'}`,
+            { status: 500 }
+        )
     }
 }
 
