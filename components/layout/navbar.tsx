@@ -136,14 +136,14 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="hidden lg:flex items-center gap-2">
+                                <div className="hidden lg:flex items-center gap-3">
                                     <Link href="/login">
-                                        <Button variant="ghost" className="text-blue-100 hover:text-white hover:bg-blue-800">
+                                        <Button variant="secondary" className="rounded-full w-32 font-bold transition-colors">
                                             Entrar
                                         </Button>
                                     </Link>
                                     <Link href="/signup">
-                                        <Button className="bg-[#af1c15] hover:bg-[#8f1610] text-white">
+                                        <Button variant="black" className="rounded-full w-32 font-bold shadow-lg border border-gray-800">
                                             Criar Conta
                                         </Button>
                                     </Link>
@@ -246,14 +246,14 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                             ) : (
                                 <>
                                     <div className="h-px bg-blue-800 my-4" />
-                                    <div className="grid grid-cols-2 gap-2 px-1">
+                                    <div className="grid grid-cols-2 gap-3 px-1">
                                         <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                                            <Button variant="outline" className="w-full border-blue-400 text-blue-100 hover:bg-blue-900 hover:text-white bg-transparent">
+                                            <Button variant="secondary" className="w-full rounded-full font-bold transition-colors">
                                                 Entrar
                                             </Button>
                                         </Link>
                                         <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
-                                            <Button className="w-full bg-[#af1c15] hover:bg-[#8f1610] text-white">
+                                            <Button variant="black" className="w-full rounded-full font-bold shadow-lg border border-gray-800">
                                                 Criar Conta
                                             </Button>
                                         </Link>
