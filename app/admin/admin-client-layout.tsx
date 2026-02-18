@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, CalendarDays, Trophy, PiggyBank, Home, LayoutDashboard, Shuffle, Image as ImageIcon, Menu, X } from 'lucide-react';
+import { Users, CalendarDays, Trophy, PiggyBank, Home, LayoutDashboard, Shuffle, Image as ImageIcon, Menu, X, ChevronRight } from 'lucide-react';
 
 interface AdminClientLayoutProps {
     children: React.ReactNode;
@@ -42,31 +42,28 @@ export default function AdminClientLayout({
 
     return (
         <div className="flex min-h-screen bg-gray-100 relative">
-            {/* Mobile Header */}
-            <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-950 text-white flex items-center justify-between px-4 z-40 border-b border-slate-800">
-                <h1 className="text-lg font-bold flex items-center gap-2">
-                    <Trophy className="text-yellow-500" size={20} />
-                    RachaAdmin
-                </h1>
-                <button
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 hover:bg-slate-900 rounded-md"
-                >
-                    {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-                </button>
-            </header>
+            {/* Minimalist Mobile Toggle Button */}
+            <button
+                onClick={() => setIsSidebarOpen(true)}
+                className={`
+                    lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-950 text-white rounded-md shadow-lg transition-opacity duration-300
+                    ${isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}
+                `}
+            >
+                <ChevronRight size={24} />
+            </button>
 
             {/* Overlay for mobile sidebar */}
             {isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm"
                     onClick={() => setIsSidebarOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
             <aside className={`
-                fixed inset-y-0 left-0 z-50 w-64 bg-slate-950 text-white flex flex-col border-r border-slate-800 transition-transform duration-300 transform
+                fixed inset-y-0 left-0 z-[70] w-64 bg-slate-950 text-white flex flex-col border-r border-slate-800 transition-transform duration-300 transform
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen flex-shrink-0
             `}>
@@ -118,7 +115,7 @@ export default function AdminClientLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-4 md:p-8 w-full transition-all lg:mt-0 mt-16 overflow-x-hidden">
+            <main className="flex-1 p-4 md:p-8 w-full lg:mt-0 mt-2 overflow-x-hidden">
                 <div className="max-w-[1400px] mx-auto">
                     {children}
                 </div>

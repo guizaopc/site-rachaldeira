@@ -50,12 +50,12 @@ export default async function AdminDashboardPage() {
 
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Painel Administrativo</h1>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="pl-12 lg:pl-0">
+                    <h1 className="text-3xl font-bold text-gray-900 leading-tight">Painel Administrativo</h1>
                     <p className="text-gray-500">Visão geral do sistema Rachaldeira</p>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-400 bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-gray-100 md:bg-transparent md:border-0 md:p-0">
                     {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
             </div>
