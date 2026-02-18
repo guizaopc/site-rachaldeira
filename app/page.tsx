@@ -15,53 +15,71 @@ import {
 } from "@/components/ui/table";
 
 export default async function Home() {
-    const supabase = await createClient();
-
-    // Buscar membros para exibir nomes nos destaques
-    const { data: members } = await supabase
-        .from('members')
-        .select('id, name, position, photo_url');
-
-    // Buscar último racha fechado para destaques semanais
-    const { data: lastRacha } = await supabase
-        .from('rachas')
-        .select('*')
-        .eq('status', 'closed')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-
+    let members = [];
+    let lastRacha = null;
+    let rachas = [];
+    let campeonatos = [];
     let weeklyHighlights = null;
-    if (lastRacha && members) {
-        const top1 = members.find(m => m.id === lastRacha.top1_id);
-        const top2 = members.find(m => m.id === lastRacha.top2_id);
-        const top3 = members.find(m => m.id === lastRacha.top3_id);
-        const sheriff = members.find(m => m.id === lastRacha.sheriff_id);
 
-        weeklyHighlights = {
-            rachaLabel: new Date(lastRacha.date_time).toLocaleDateString('pt-BR'),
-            top1,
-            top2,
-            top3,
-            sheriff
-        };
+    try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseAnonKey) {
+            const supabase = await createClient();
+
+            // Buscar membros para exibir nomes nos destaques
+            const { data: membersData } = await supabase
+                .from('members')
+                .select('id, name, position, photo_url');
+            members = membersData || [];
+
+            // Buscar último racha fechado para destaques semanais
+            const { data: lastRachaData } = await supabase
+                .from('rachas')
+                .select('*')
+                .eq('status', 'closed')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            lastRacha = lastRachaData;
+
+            if (lastRacha && members.length > 0) {
+                const top1 = members.find(m => m.id === lastRacha.top1_id);
+                const top2 = members.find(m => m.id === lastRacha.top2_id);
+                const top3 = members.find(m => m.id === lastRacha.top3_id);
+                const sheriff = members.find(m => m.id === lastRacha.sheriff_id);
+
+                weeklyHighlights = {
+                    rachaLabel: new Date(lastRacha.date_time).toLocaleDateString('pt-BR'),
+                    top1,
+                    top2,
+                    top3,
+                    sheriff
+                };
+            }
+
+            // Buscar próximos rachas
+            const { data: rachasData } = await supabase
+                .from('rachas')
+                .select('*')
+                .gte('date_time', new Date().toISOString())
+                .order('date_time', { ascending: true })
+                .limit(3);
+            rachas = rachasData || [];
+
+            // Buscar próximos campeonatos
+            const { data: campeonatosData } = await supabase
+                .from('championships')
+                .select('*')
+                .in('status', ['not_started', 'in_progress'])
+                .order('start_date', { ascending: true })
+                .limit(3);
+            campeonatos = campeonatosData || [];
+        }
+    } catch (error) {
+        console.error("Error fetching homepage data:", error);
     }
-
-    // Buscar próximos rachas
-    const { data: rachas } = await supabase
-        .from('rachas')
-        .select('*')
-        .gte('date_time', new Date().toISOString())
-        .order('date_time', { ascending: true })
-        .limit(3);
-
-    // Buscar próximos campeonatos
-    const { data: campeonatos } = await supabase
-        .from('championships')
-        .select('*')
-        .in('status', ['not_started', 'in_progress'])
-        .order('start_date', { ascending: true })
-        .limit(3);
 
     return (
         <main className="min-h-screen bg-gray-50 flex flex-col">
