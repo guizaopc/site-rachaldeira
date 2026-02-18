@@ -70,11 +70,11 @@ export default async function FinancialPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-slate-900 text-white border-0 shadow-lg">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-200">Saldo Total</CardTitle>
+                        <CardTitle className="text-sm font-medium text-emerald-400">Saldo Total</CardTitle>
                         <PiggyBank className="h-4 w-4 text-emerald-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">
+                        <div className="text-3xl font-bold text-emerald-400">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
                         </div>
                         <p className="text-xs text-gray-400 mt-1">

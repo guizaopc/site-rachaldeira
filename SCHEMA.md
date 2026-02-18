@@ -274,7 +274,28 @@ voting_periods
 
 ---
 
-### 12. votes
+### 12. financial_transactions
+**Descrição**: Registros financeiros de receitas e despesas.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID (PK) | ID único |
+| `type` | ENUM | `income` (receita) ou `expense` (despesa) |
+| `category` | ENUM | `monthly_fee`, `game_fee`, `field_rental`, etc. |
+| `amount` | DECIMAL | Valor da transação |
+| `description` | TEXT | Detalhes opcional |
+| `transaction_date` | DATE | Data da transação |
+| `member_id` | UUID (FK) | ID do membro (opcional) |
+| `status` | ENUM | `pending`, `completed`, `cancelled` |
+| `payment_method` | ENUM | `pix`, `money`, etc. |
+| `created_at` | TIMESTAMP | Data de criação |
+
+**Relações:**
+- ← `members` (N:1 - member_id)
+
+---
+
+### 13. votes
 **Descrição**: Votos de Craque e Xerife por período.
 
 | Campo | Tipo | Descrição |
