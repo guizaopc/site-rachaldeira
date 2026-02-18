@@ -101,7 +101,7 @@ export default async function Home() {
                 <div className="relative z-10 animate-fade-in-up flex flex-col items-center">
 
                     <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-md">
-                        Bem-vindo ao Rachaldeira (Debug: No Middleware)
+                        Bem-vindo ao Rachaldeira
                     </h1>
                     <p className="text-xl md:text-2xl text-gray-100 max-w-2xl mx-auto drop-shadow-sm font-light">
                         Resenha, amizade e futebol levado a sério.
