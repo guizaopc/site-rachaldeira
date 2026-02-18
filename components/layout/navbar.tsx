@@ -53,12 +53,12 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                         {/* Logo Simplificada */}
                         <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity relative z-50">
                             <NextImage
-                                src="/logo-new.png"
+                                src="https://pqroxmeyuicutatbessb.supabase.co/storage/v1/object/public/Fotos/logo%20rachaldeira.png"
                                 alt="Rachaldeira Logo"
-                                width={160}
-                                height={160}
-                                className="object-contain -mt-8 drop-shadow-2xl"
-                                sizes="(max-width: 768px) 120px, 160px"
+                                width={120}
+                                height={120}
+                                className="object-contain -mt-6 drop-shadow-2xl"
+                                sizes="(max-width: 768px) 100px, 120px"
                             />
                         </Link>
 

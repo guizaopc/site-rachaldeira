@@ -14,7 +14,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-    title: "Rachaldeira - Sistema de Gestão de Racha",
+    title: "Rachaldeira",
     description: "Sistema completo para gestão do racha de futebol Rachaldeira",
 };
 
