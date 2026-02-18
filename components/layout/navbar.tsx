@@ -92,7 +92,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                 </div>
                             )}
 
-                            {user && (
+                            {user ? (
                                 <div className="hidden lg:flex items-center gap-3 pl-3 border-l border-blue-800">
                                     <Link
                                         href="/meu-perfil"
@@ -134,6 +134,19 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                     >
                                         <LogOut size={16} />
                                     </Button>
+                                </div>
+                            ) : (
+                                <div className="hidden lg:flex items-center gap-2">
+                                    <Link href="/login">
+                                        <Button variant="ghost" className="text-blue-100 hover:text-white hover:bg-blue-800">
+                                            Entrar
+                                        </Button>
+                                    </Link>
+                                    <Link href="/signup">
+                                        <Button className="bg-[#af1c15] hover:bg-[#8f1610] text-white">
+                                            Criar Conta
+                                        </Button>
+                                    </Link>
                                 </div>
                             )}
 
@@ -189,7 +202,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                 </>
                             )}
 
-                            {user && (
+                            {user ? (
                                 <>
                                     <div className="h-px bg-blue-800 my-2" />
                                     <Link
@@ -228,6 +241,22 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                         >
                                             <LogOut size={18} className="mr-2" /> Sair
                                         </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="h-px bg-blue-800 my-4" />
+                                    <div className="grid grid-cols-2 gap-2 px-1">
+                                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                                            <Button variant="outline" className="w-full border-blue-400 text-blue-100 hover:bg-blue-900 hover:text-white bg-transparent">
+                                                Entrar
+                                            </Button>
+                                        </Link>
+                                        <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
+                                            <Button className="w-full bg-[#af1c15] hover:bg-[#8f1610] text-white">
+                                                Criar Conta
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </>
                             )}

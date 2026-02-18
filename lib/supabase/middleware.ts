@@ -36,15 +36,23 @@ export async function updateSession(request: NextRequest) {
             data: { user },
         } = await supabase.auth.getUser()
 
+        // Public routes that don't require authentication
+        const isPublicRoute =
+            request.nextUrl.pathname === '/' ||
+            request.nextUrl.pathname.startsWith('/login') ||
+            request.nextUrl.pathname.startsWith('/signup') ||
+            request.nextUrl.pathname.startsWith('/forgot-password') ||
+            request.nextUrl.pathname.startsWith('/auth') ||
+            request.nextUrl.pathname.startsWith('/rachas') ||
+            request.nextUrl.pathname.startsWith('/campeonatos') ||
+            request.nextUrl.pathname.startsWith('/galeria') ||
+            request.nextUrl.pathname.startsWith('/stats') ||
+            request.nextUrl.pathname.startsWith('/rank') ||
+            request.nextUrl.pathname.startsWith('/integrantes');
+
         // Protected routes check
-        if (
-            !user &&
-            !request.nextUrl.pathname.startsWith('/login') &&
-            !request.nextUrl.pathname.startsWith('/signup') &&
-            !request.nextUrl.pathname.startsWith('/forgot-password') &&
-            request.nextUrl.pathname !== '/'
-        ) {
-            // No user, redirect to login
+        if (!user && !isPublicRoute) {
+            // No user and not public, redirect to login
             const url = request.nextUrl.clone()
             url.pathname = '/login'
             return NextResponse.redirect(url)
