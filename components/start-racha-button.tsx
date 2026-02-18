@@ -35,7 +35,7 @@ export default function StartRachaButton({ rachaId }: { rachaId: string }) {
         <Button
             onClick={handleStartRacha}
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white gap-2"
+            className="bg-green-600 hover:bg-green-700 text-white gap-2 w-full sm:w-auto"
         >
             <Play size={16} />
             {loading ? 'Iniciando...' : 'Iniciar Racha'}

@@ -101,12 +101,12 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                         ⚽ Detalhes do Racha
                     </h1>
                     {isAdmin && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-col items-end gap-2">
                             {(racha.status === 'open' || racha.status === 'locked') && (
                                 <StartRachaButton rachaId={rachaId} />
                             )}
                             <Link href={`/admin/rachas/${rachaId}/scouts`}>
-                                <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                                <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
                                     <Activity size={16} />
                                     Ir para os Scouts Ao vivo
                                 </Button>
