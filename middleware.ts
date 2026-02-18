@@ -7,9 +7,23 @@ export async function middleware(request: NextRequest) {
             request,
         })
 
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+            console.error('Middleware Error: Missing Supabase environment variables')
+            return new NextResponse(
+                JSON.stringify({
+                    error: 'Service Unavailable',
+                    message: 'Missing Supabase configuration. Please check environment variables.',
+                }),
+                { status: 503, headers: { 'content-type': 'application/json' } }
+            )
+        }
+
         const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            supabaseUrl,
+            supabaseAnonKey,
             {
                 cookies: {
                     getAll() {
