@@ -151,15 +151,6 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         if (hlError) alert('Erro ao salvar destaques: ' + hlError.message);
     };
 
-    const handleStartRacha = async () => {
-        const supabase = createClient();
-        await supabase
-            .from('rachas')
-            .update({ status: 'in_progress' })
-            .eq('id', rachaId);
-
-        loadData();
-    };
 
     const handleCloseAndSaveRacha = async () => {
         if (!confirm('Tem certeza que deseja fechar este racha e salvar os scouts? O status mudará para "closed".')) return;
@@ -269,12 +260,6 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                     </div>
 
                     <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                        {(racha.status === 'open' || racha.status === 'locked') && (
-                            <Button onClick={handleStartRacha}>
-                                <Play size={16} className="mr-2" />
-                                Iniciar Racha
-                            </Button>
-                        )}
                         {racha.status === 'in_progress' && (
                             <Button variant="danger" onClick={handleCloseAndSaveRacha} disabled={saving} size="lg">
                                 <Save size={16} className="mr-2" />

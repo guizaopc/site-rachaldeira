@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { CalendarDays, MapPin, Clock, Users, Trophy, Shield, Medal, Activity } from 'lucide-react';
 import Link from 'next/link';
 import RachaAttendance from '@/components/racha-attendance';
+import StartRachaButton from '@/components/start-racha-button';
 
 export default async function RachaDetalhesPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = await params;
@@ -100,12 +101,17 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                         ⚽ Detalhes do Racha
                     </h1>
                     {isAdmin && (
-                        <Link href={`/admin/rachas/${rachaId}/scouts`}>
-                            <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                                <Activity size={16} />
-                                Ir para os Scouts Ao vivo
-                            </Button>
-                        </Link>
+                        <div className="flex gap-2">
+                            {(racha.status === 'open' || racha.status === 'locked') && (
+                                <StartRachaButton rachaId={rachaId} />
+                            )}
+                            <Link href={`/admin/rachas/${rachaId}/scouts`}>
+                                <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                                    <Activity size={16} />
+                                    Ir para os Scouts Ao vivo
+                                </Button>
+                            </Link>
+                        </div>
                     )}
                 </div>
                 <p className="text-gray-600 mb-8">{racha.location}</p>
