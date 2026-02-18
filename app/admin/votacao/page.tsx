@@ -180,29 +180,41 @@ export default function AdminVotacaoPage() {
                     }
                 >
                     <div className="space-y-4">
-                        <Input
-                            label="Nome do Período *"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="Ex: Votação Janeiro 2026"
-                            required
-                        />
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Nome do Período *
+                            </label>
+                            <Input
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="Ex: Votação Janeiro 2026"
+                                required
+                            />
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="Data de Início *"
-                                type="date"
-                                value={formData.start_date}
-                                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                                required
-                            />
-                            <Input
-                                label="Data de Término *"
-                                type="date"
-                                value={formData.end_date}
-                                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                                required
-                            />
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Data de Início *
+                                </label>
+                                <Input
+                                    type="date"
+                                    value={formData.start_date}
+                                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Data de Término *
+                                </label>
+                                <Input
+                                    type="date"
+                                    value={formData.end_date}
+                                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                                    required
+                                />
+                            </div>
                         </div>
 
                         <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
