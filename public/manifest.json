@@ -3,6 +3,7 @@
     "short_name": "Rachaldeira",
     "description": "Sistema de Gestão do Racha Rachaldeira",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#0f172a",

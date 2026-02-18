@@ -25,6 +25,12 @@ export const metadata: Metadata = {
             url: '/logo.png',
         },
     },
+    manifest: '/manifest.json',
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'default',
+        title: 'Rachaldeira',
+    },
 };
 
 export default async function RootLayout({
