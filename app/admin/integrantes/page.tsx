@@ -47,10 +47,14 @@ export default function AdminIntegrantesPage() {
 
     const loadMembers = async () => {
         const supabase = createClient();
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('members')
             .select('*, profiles(role)')
             .order('name');
+
+        if (error) {
+            console.error('Error loading members:', error);
+        }
 
         setMembers(data || []);
         setLoading(false);

@@ -56,7 +56,7 @@ export default async function AdminDashboardPage() {
                     <p className="text-gray-500">Visão geral do sistema Rachaldeira</p>
                 </div>
                 <div className="text-sm text-gray-400 bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-gray-100 md:bg-transparent md:border-0 md:p-0">
-                    {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Sao_Paulo' })}
                 </div>
             </div>
 
@@ -71,10 +71,10 @@ export default async function AdminDashboardPage() {
                         {nextRacha ? (
                             <>
                                 <div className="text-2xl font-bold">
-                                    {new Date(nextRacha.date_time).toLocaleDateString('pt-BR', { weekday: 'long' })}
+                                    {new Date(nextRacha.date_time).toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'America/Sao_Paulo' })}
                                 </div>
                                 <p className="text-xs text-muted-foreground capitalize">
-                                    {new Date(nextRacha.date_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {nextRacha.location}
+                                    {new Date(nextRacha.date_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })} • {nextRacha.location}
                                 </p>
                             </>
                         ) : (
