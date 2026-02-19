@@ -13,7 +13,8 @@ import MonthlyFeesList from './monthly-fees';
 
 export const dynamic = 'force-dynamic';
 
-export default async function FinancialPage({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function FinancialPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+    const { tab } = await searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -118,7 +119,7 @@ export default async function FinancialPage({ searchParams }: { searchParams: { 
             </div>
 
             {/* Abas de Gerenciamento */}
-            <Tabs defaultValue={searchParams?.tab || "transactions"} className="space-y-6">
+            <Tabs defaultValue={tab || "transactions"} className="space-y-6">
                 <TabsList className="bg-white p-1 rounded-xl border shadow-sm w-full md:w-auto grid grid-cols-2 md:inline-flex h-auto">
                     <TabsTrigger
                         value="transactions"
