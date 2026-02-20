@@ -43,7 +43,8 @@ export default async function SorteioPage() {
                 id,
                 name,
                 photo_url,
-                position
+                position,
+                level
             )
         `)
         .eq('racha_id', nextRacha.id)

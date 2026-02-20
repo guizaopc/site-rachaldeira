@@ -21,6 +21,7 @@ interface Profile {
         email: string;
         photo_url: string | null;
         position: string;
+        level: number;
     };
 }
 
@@ -65,6 +66,29 @@ export default function UserManagementClient({ profiles }: { profiles: any[] }) 
         }
     };
 
+    const handleLevelUpdate = async (memberId: string, newLevel: number) => {
+        // Set loading state if needed, using a unique key like `${memberId}-level`
+        setLoading(`${memberId}-level`);
+        const supabase = createClient();
+
+        const { error } = await supabase
+            .from('members')
+            .update({ level: newLevel })
+            .eq('id', memberId);
+
+        if (error) {
+            alert('Erro ao atualizar nível: ' + error.message);
+        } else {
+            // Update local state
+            setUserProfiles(prev => prev.map(p =>
+                p.members?.id === memberId
+                    ? { ...p, members: { ...p.members, level: newLevel } }
+                    : p
+            ));
+        }
+        setLoading(null);
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -87,6 +111,7 @@ export default function UserManagementClient({ profiles }: { profiles: any[] }) 
                                 <TableHead>Usuário</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Posição</TableHead>
+                                <TableHead>Nível</TableHead>
                                 <TableHead>Cargo Atual</TableHead>
                                 <TableHead className="text-right">Definir Cargo</TableHead>
                             </TableRow>
@@ -109,6 +134,24 @@ export default function UserManagementClient({ profiles }: { profiles: any[] }) 
                                         </TableCell>
                                         <TableCell>{p.members?.email}</TableCell>
                                         <TableCell>{p.members?.position}</TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={String(p.members?.level || 1)}
+                                                onValueChange={(val) => handleLevelUpdate(p.members.id, parseInt(val))}
+                                                disabled={loading === `${p.members.id}-level`}
+                                            >
+                                                <SelectTrigger className="w-[70px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[1, 2, 3, 4, 5].map(level => (
+                                                        <SelectItem key={level} value={String(level)}>
+                                                            {level}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
                                         <TableCell>{getRoleBadge(p.role)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end items-center gap-2">

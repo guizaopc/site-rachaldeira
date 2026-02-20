@@ -8,6 +8,7 @@ import NextImage from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 
+
 interface NavbarProps {
     user: any;
     profile: any;
@@ -83,6 +84,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
 
                         {/* User Actions & Mobile Toggle */}
                         <div className="flex items-center gap-4">
+
                             {/* Admin Link - For Admins and Directors */}
                             {(isAdmin || profile?.role === 'director') && (
                                 <div className="hidden lg:flex items-center">
@@ -184,6 +186,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                 );
                             })}
 
+
                             {isAdmin && (
                                 <>
                                     <div className="h-px bg-blue-800 my-2" />
@@ -201,6 +204,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                                     ))}
                                 </>
                             )}
+
 
                             {user ? (
                                 <>

@@ -12,6 +12,7 @@ interface Member {
     name: string;
     photo_url: string | null;
     position: string | null;
+    level?: number; // 1-5
 }
 
 interface TeamDrawerProps {
@@ -54,13 +55,129 @@ export function TeamDrawer({ confirmedMembers, rachaLocation, rachaDate }: TeamD
 
         setIsShuffling(true);
         setTimeout(() => {
-            const shuffled = [...selectedMembers].sort(() => Math.random() - 0.5);
-            const newTeams: Member[][] = [];
-            const teamSize = 5;
+            // Function to normalize position
+            const normalizePosition = (pos: string | null): 'DEF' | 'MID' | 'ATT' | 'GK' | 'OTHER' => {
+                if (!pos) return 'OTHER';
+                const p = pos.toLowerCase();
+                if (p.includes('gol') || p.includes('gk')) return 'GK';
+                if (p.includes('zag') || p.includes('def') || p.includes('lat') || p.includes('bec')) return 'DEF';
+                if (p.includes('mei') || p.includes('vol') || p.includes('arm')) return 'MID';
+                if (p.includes('ata') || p.includes('pon') || p.includes('cen')) return 'ATT';
+                return 'OTHER';
+            };
 
-            for (let i = 0; i < shuffled.length; i += teamSize) {
-                newTeams.push(shuffled.slice(i, i + teamSize));
+            // Group members by position
+            const positionGroups: Record<string, Member[]> = {
+                GK: [],
+                DEF: [],
+                MID: [],
+                ATT: [],
+                OTHER: []
+            };
+
+            selectedMembers.forEach(m => {
+                const role = normalizePosition(m.position);
+                positionGroups[role].push(m);
+            });
+
+            // Sort each group by level (descending)
+            Object.values(positionGroups).forEach(group => {
+                group.sort((a, b) => (b.level || 1) - (a.level || 1));
+            });
+
+            // Determine number of teams
+            const totalPlayers = selectedMembers.length;
+            const targetTeamSize = 5; // Preference: 5 per team
+            let numTeams = Math.floor(totalPlayers / targetTeamSize);
+            if (numTeams < 2 && totalPlayers >= 4) {
+                numTeams = 2; // Min 2 teams for a match
+            } else if (numTeams === 0) {
+                numTeams = 1; // Fallback
             }
+
+            const newTeams: Member[][] = Array.from({ length: numTeams }, () => []);
+            const teamLevelSums = new Array(numTeams).fill(0);
+
+            // Helper to add player to a specific team
+            const addPlayerToTeam = (teamIndex: number, player: Member) => {
+                newTeams[teamIndex].push(player);
+                teamLevelSums[teamIndex] += (player.level || 1);
+            };
+
+            // Helper to find the best team for a player (balancing levels)
+            // Strategy: Add to the team with the lowest total level that needs this position?
+            // Or simpler: Add to team with lowest total level, period.
+            const distributePlayers = (players: Member[]) => {
+                for (const player of players) {
+                    // Find team with lowest total level sum
+                    // Preference: Lowest sum among teams with fewest players
+                    let minLen = Math.min(...newTeams.map(t => t.length));
+                    const candidateIndices = newTeams
+                        .map((t, idx) => ({ idx, len: t.length, sum: teamLevelSums[idx] }))
+                        // We want to fill evenly, so restrict to teams with minLen (unless we are filling specific slots)
+                        // But here we are just distributing generalized lists.
+                        // Let's stick to "Lowest Level Sum" to balance skills, 
+                        // BUT we must respect size balance. 
+                        // If one team has 3 players and another has 2, give to the one with 2.
+                        .sort((a, b) => {
+                            if (a.len !== b.len) return a.len - b.len; // Fill empty slots first
+                            return a.sum - b.sum; // Then balance levels
+                        });
+
+                    const chosenIndex = candidateIndices[0].idx;
+                    addPlayerToTeam(chosenIndex, player);
+                }
+            };
+
+            // Specialized distribution for "Ideal Composition"
+            // Ideal: 1 GK, 2 DEF, 1 MID, 2 ATT (Total 6?) 
+            // User requested: 5 per team -> 2 Zagueiros, 1 Meio, 2 Atacantes. (Total 5).
+            // Usually GKs are separate. If there are GKs, we add them on top or swap? 
+            // Let's assume GK is +1 if present, or one of the 5. 
+            // If user says 2 Zag, 1 Mei, 2 Ata = 5 players. So GK replaces someone or is extra.
+            // Let's distribute GKs first (1 per team max)
+
+            // 1. Distribute GKs
+            // We strip GKs from the teams first so they don't count towards the "2 DEF" limit logic yet?
+            // Actually, let's just use the generic distribute for GKs first, they take a slot.
+            distributePlayers(positionGroups.GK);
+
+            // 2. Distribute DEF (Target 2 per team)
+            // We want to ensure each team gets 2 DEFs if possible.
+            // We can iterate team by team? No, better to distribute pool of DEFs across teams.
+            // Loop 2 times: Round 1 of defs, Round 2 of defs.
+            const distributeRestricted = (players: Member[], maxPerTeam: number) => {
+                // Determine how many rounds of distribution we can fully do
+                // Actually, just distribute normally but prioritize teams that have FEWER of this position than needed?
+                // Too complex.
+                // Simpler: Just distribute using the balanced logic.
+                // Because we sort by level, the strongest DEF goes to Team A, next to Team B...
+                // Ideally this results in 1-1-1-1... then 2-2-2-2.
+                // So standard "distributePlayers" essentially does Round Robin if counts are equal.
+                // It balances size, then level.
+                distributePlayers(players);
+            };
+
+            // The user wants specifically: 2 DEF, then 1 MID, then 2 ATT.
+            // If we just dump them all in `distributePlayers` order:
+            // DEF -> fills slots 1..N (each team gets 1 DEF), then slots N+1..2N (each team gets 2nd DEF).
+            // MID -> fills slots.
+            // ATT -> fills slots.
+            // This perfectly achieves the goal of "2 DEF, 1 MID, 2 ATT" per team IF we have exact numbers.
+            // If we don't, it "mixes" naturally by filling the next available slots.
+
+            // Order of injection strictly matters to satisfy "Core Requirement first".
+            // 1. Defenders (Foundation)
+            distributePlayers(positionGroups.DEF);
+
+            // 2. Midfielders (Link)
+            distributePlayers(positionGroups.MID);
+
+            // 3. Attackers (Finishers)
+            distributePlayers(positionGroups.ATT);
+
+            // 4. Others/Wildcards
+            distributePlayers(positionGroups.OTHER);
 
             setTeams(newTeams);
             setIsShuffling(false);
@@ -134,8 +251,8 @@ export function TeamDrawer({ confirmedMembers, rachaLocation, rachaDate }: TeamD
                                         key={member.id}
                                         onClick={() => handleToggleMember(member.id)}
                                         className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedMemberIds.has(member.id)
-                                                ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
-                                                : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
+                                            ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                                            : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
                                             }`}
                                     >
                                         <input

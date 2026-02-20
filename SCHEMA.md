@@ -67,6 +67,7 @@ voting_periods
 | `email` | TEXT (UNIQUE) | E-mail |
 | `photo_url` | TEXT | URL da foto (Supabase Storage) |
 | `position` | TEXT | Posição (Atacante, Goleiro, etc.) |
+| `level` | INTEGER | Nível (1-5) para balanceamento de times (Default: 1) |
 | `created_at` | TIMESTAMP | Data de criação |
 | `updated_at` | TIMESTAMP | Última atualização |
 

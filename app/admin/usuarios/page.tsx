@@ -35,7 +35,8 @@ export default async function UserManagementPage() {
                 name,
                 email,
                 photo_url,
-                position
+                position,
+                level
             )
         `)
         .order('created_at', { ascending: false });

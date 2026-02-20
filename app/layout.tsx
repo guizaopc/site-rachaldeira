@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/layout/navbar";
 import Footer from "@/components/Footer";
 
+
 export const dynamic = 'force-dynamic';
 
 const poppins = Poppins({
