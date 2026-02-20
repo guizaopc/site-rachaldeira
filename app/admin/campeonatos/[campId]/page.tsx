@@ -528,7 +528,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle>Times ({teams.length})</CardTitle>
-                                {championship.status === 'not_started' && <Button size="sm" variant="ghost" onClick={() => setIsTeamModalOpen(true)}><Plus size={16} /></Button>}
+                                <Button size="sm" variant="ghost" onClick={() => setIsTeamModalOpen(true)}><Plus size={16} /></Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {teams.map(t => (
