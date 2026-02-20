@@ -19,6 +19,7 @@ export default async function IntegrantesPage() {
     const { data: members } = await supabase
         .from('members')
         .select('*')
+        .or('is_active.eq.true,is_active.is.null')
         .order('name', { ascending: true });
 
     return (

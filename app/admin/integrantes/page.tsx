@@ -26,6 +26,7 @@ export default function AdminIntegrantesPage() {
         email: '',
         position: '',
         password: '',
+        is_active: true,
     });
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [error, setError] = useState('');
@@ -72,6 +73,7 @@ export default function AdminIntegrantesPage() {
                 email: member.email,
                 position: member.position || '',
                 password: '',
+                is_active: member.is_active !== false,
             });
         } else {
             setEditingMember(null);
@@ -83,6 +85,7 @@ export default function AdminIntegrantesPage() {
                 email: '',
                 position: '',
                 password: '',
+                is_active: true,
             });
         }
         setPhotoFile(null);
@@ -123,6 +126,7 @@ export default function AdminIntegrantesPage() {
                 email: formData.email,
                 position: formData.position || null,
                 photo_url: photoUrl,
+                is_active: formData.is_active,
             };
 
             if (editingMember) {
@@ -241,7 +245,7 @@ export default function AdminIntegrantesPage() {
                                     <TableHead>E-mail</TableHead>
                                     <TableHead>Posição</TableHead>
                                     <TableHead>Idade</TableHead>
-                                    <TableHead>Telefone</TableHead>
+                                    <TableHead>Status</TableHead>
                                     {currentUserEmail === 'gr96445@gmail.com' && <TableHead>Função</TableHead>}
                                     <TableHead className="text-right">Ações</TableHead>
                                 </TableRow>
@@ -253,7 +257,11 @@ export default function AdminIntegrantesPage() {
                                         <TableCell>{member.email}</TableCell>
                                         <TableCell>{member.position || '-'}</TableCell>
                                         <TableCell>{member.age || '-'}</TableCell>
-                                        <TableCell>{member.phone || '-'}</TableCell>
+                                        <TableCell>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${member.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                {member.is_active !== false ? 'Ativo' : 'Não Membro'}
+                                            </span>
+                                        </TableCell>
                                         {currentUserEmail === 'gr96445@gmail.com' && (
                                             <TableCell>
                                                 <Select
@@ -358,6 +366,21 @@ export default function AdminIntegrantesPage() {
                                     <SelectItem value="Lateral">Lateral</SelectItem>
                                     <SelectItem value="Meio-Campo">Meio-Campo</SelectItem>
                                     <SelectItem value="Atacante">Atacante</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Status no Grupo</Label>
+                            <Select
+                                value={formData.is_active ? "true" : "false"}
+                                onValueChange={(value) => setFormData({ ...formData, is_active: value === "true" })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="true">Ativo (Aparece na lista)</SelectItem>
+                                    <SelectItem value="false">Não Membro (Oculto)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

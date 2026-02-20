@@ -187,13 +187,13 @@ export default function MembersList({ initialMembers, currentUserRole }: { initi
                                         </div>
                                     )}
 
-                                    <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500 mt-2">
-                                        <div className="flex items-center gap-1">
-                                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                            <span>Nível</span>
-                                        </div>
+                                    {canEdit && (
+                                        <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500 mt-2">
+                                            <div className="flex items-center gap-1">
+                                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                                <span>Nível</span>
+                                            </div>
 
-                                        {canEdit ? (
                                             <Select
                                                 value={String(member.level || 1)}
                                                 onValueChange={(val) => handleLevelUpdate(member.id, parseInt(val))}
@@ -210,12 +210,8 @@ export default function MembersList({ initialMembers, currentUserRole }: { initi
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                        ) : (
-                                            <Badge variant="secondary" className="font-bold">
-                                                {member.level || 1}
-                                            </Badge>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
