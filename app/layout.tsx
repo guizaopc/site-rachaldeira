@@ -4,6 +4,7 @@ import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/layout/navbar";
 import Footer from "@/components/Footer";
+import { Toaster } from "sonner";
 
 
 export const dynamic = 'force-dynamic';
@@ -116,6 +117,7 @@ export default async function RootLayout({
                     {children}
                 </div>
                 <Footer />
+                <Toaster />
             </body>
         </html>
     );

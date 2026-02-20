@@ -4,6 +4,18 @@ import MembersList from './members-list';
 export default async function IntegrantesPage() {
     const supabase = await createClient();
 
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let currentUserRole = null;
+    if (user) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        currentUserRole = profile?.role || null;
+    }
+
     const { data: members } = await supabase
         .from('members')
         .select('*')
@@ -21,7 +33,7 @@ export default async function IntegrantesPage() {
                     </p>
                 </div>
 
-                <MembersList initialMembers={members || []} />
+                <MembersList initialMembers={members || []} currentUserRole={currentUserRole} />
             </div>
         </main>
     );

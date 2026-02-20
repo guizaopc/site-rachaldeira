@@ -6,7 +6,17 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Search, Filter, X } from 'lucide-react';
+import { User, Search, Filter, X, Star, Save } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { createClient } from '@/lib/supabase/client';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface Member {
     id: string;
@@ -14,26 +24,60 @@ interface Member {
     photo_url?: string;
     position?: string;
     age?: number;
+    level?: number;
 }
 
-export default function MembersList({ initialMembers }: { initialMembers: Member[] }) {
+export default function MembersList({ initialMembers, currentUserRole }: { initialMembers: Member[], currentUserRole?: string | null }) {
+    const [members, setMembers] = useState<Member[]>(initialMembers);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
+    const [editingLevel, setEditingLevel] = useState<string | null>(null); // Member ID being edited
+    const [loadingLevel, setLoadingLevel] = useState<string | null>(null);
+
+    const canEdit = currentUserRole === 'admin' || currentUserRole === 'director';
+
+    const handleLevelUpdate = async (memberId: string, newLevel: number) => {
+        setLoadingLevel(memberId);
+        const supabase = createClient();
+
+        try {
+            const { error } = await supabase
+                .from('members')
+                .update({ level: newLevel })
+                .eq('id', memberId);
+
+            if (error) throw error;
+
+            toast.success("Nível atualizado com sucesso!");
+
+            // Update local state
+            setMembers(prev => prev.map(m =>
+                m.id === memberId ? { ...m, level: newLevel } : m
+            ));
+            setEditingLevel(null);
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao atualizar nível.");
+        } finally {
+            setLoadingLevel(null);
+        }
+    };
+
 
     // Get unique positions for filter
     const positions = useMemo(() => {
-        const pos = new Set(initialMembers.map(m => m.position).filter(Boolean));
+        const pos = new Set(members.map(m => m.position).filter(Boolean));
         return Array.from(pos).sort();
-    }, [initialMembers]);
+    }, [members]);
 
     // Filter members
     const filteredMembers = useMemo(() => {
-        return initialMembers.filter(member => {
+        return members.filter(member => {
             const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesPosition = selectedPosition ? member.position === selectedPosition : true;
             return matchesSearch && matchesPosition;
         });
-    }, [initialMembers, searchTerm, selectedPosition]);
+    }, [members, searchTerm, selectedPosition]);
 
     return (
         <div>
@@ -84,7 +128,7 @@ export default function MembersList({ initialMembers }: { initialMembers: Member
                     <div className="mt-4 text-sm text-gray-500 flex items-center gap-2 animate-fade-in">
                         <Filter size={14} />
                         <span>
-                            Mostrando {filteredMembers.length} de {initialMembers.length} perebas
+                            Mostrando {filteredMembers.length} de {members.length} perebas
                             {selectedPosition && ` da posição "${selectedPosition}"`}
                             {searchTerm && ` com termo "${searchTerm}"`}
                         </span>
@@ -142,6 +186,36 @@ export default function MembersList({ initialMembers }: { initialMembers: Member
                                             <span className="font-semibold text-gray-700">{member.age} anos</span>
                                         </div>
                                     )}
+
+                                    <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500 mt-2">
+                                        <div className="flex items-center gap-1">
+                                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                            <span>Nível</span>
+                                        </div>
+
+                                        {canEdit ? (
+                                            <Select
+                                                value={String(member.level || 1)}
+                                                onValueChange={(val) => handleLevelUpdate(member.id, parseInt(val))}
+                                                disabled={loadingLevel === member.id}
+                                            >
+                                                <SelectTrigger className="w-[60px] h-7 text-xs px-2">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[1, 2, 3, 4, 5].map(lvl => (
+                                                        <SelectItem key={lvl} value={String(lvl)} className="text-xs">
+                                                            {lvl}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <Badge variant="secondary" className="font-bold">
+                                                {member.level || 1}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
