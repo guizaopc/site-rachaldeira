@@ -190,9 +190,9 @@ export default function RegistrarResultadoPage({ params }: { params: Promise<{ c
                                     {match.team_a?.name}
                                 </h2>
                                 <div className="flex items-center justify-center gap-4">
-                                    <Button variant="outline" size="icon" onClick={() => setScoreA(Math.max(0, scoreA - 1))}><Minus size={16} /></Button>
+                                    <Button variant="outline" size="sm" className="w-10 h-10 p-0" onClick={() => setScoreA(Math.max(0, scoreA - 1))}><Minus size={16} /></Button>
                                     <span className="text-6xl font-black text-blue-900 w-24">{scoreA}</span>
-                                    <Button variant="outline" size="icon" onClick={() => setScoreA(scoreA + 1)}><Plus size={16} /></Button>
+                                    <Button variant="outline" size="sm" className="w-10 h-10 p-0" onClick={() => setScoreA(scoreA + 1)}><Plus size={16} /></Button>
                                 </div>
                             </div>
 
@@ -203,9 +203,9 @@ export default function RegistrarResultadoPage({ params }: { params: Promise<{ c
                                     {match.team_b?.name}
                                 </h2>
                                 <div className="flex items-center justify-center gap-4">
-                                    <Button variant="outline" size="icon" onClick={() => setScoreB(Math.max(0, scoreB - 1))}><Minus size={16} /></Button>
+                                    <Button variant="outline" size="sm" className="w-10 h-10 p-0" onClick={() => setScoreB(Math.max(0, scoreB - 1))}><Minus size={16} /></Button>
                                     <span className="text-6xl font-black text-blue-900 w-24">{scoreB}</span>
-                                    <Button variant="outline" size="icon" onClick={() => setScoreB(scoreB + 1)}><Plus size={16} /></Button>
+                                    <Button variant="outline" size="sm" className="w-10 h-10 p-0" onClick={() => setScoreB(scoreB + 1)}><Plus size={16} /></Button>
                                 </div>
                             </div>
                         </div>
