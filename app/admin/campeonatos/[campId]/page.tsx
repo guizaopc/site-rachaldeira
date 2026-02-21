@@ -217,27 +217,35 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
 
     const handleGenerateKnockout = async () => {
         setSaving(true);
-        if (selectedQualifiers.length !== 8) {
-            setError('Selecione exatamente 8 times');
+        if (selectedQualifiers.length !== 4) {
+            setError('Selecione exatamente 4 times');
             setSaving(false);
             return;
         }
 
         try {
             const supabase = createClient();
-            const matchesToInsert: any[] = [];
-            for (let i = 0; i < 4; i++) {
-                matchesToInsert.push({
+            const matchesToInsert: any[] = [
+                {
                     championship_id: campId,
-                    bracket_position: `qf-${i + 1}`,
-                    team_a_id: selectedQualifiers[i],
-                    team_b_id: selectedQualifiers[7 - i],
+                    bracket_position: 'semi-1',
+                    team_a_id: selectedQualifiers[0], // 1º colocado
+                    team_b_id: selectedQualifiers[3], // 4º colocado
                     status: 'scheduled',
-                });
-            }
-            matchesToInsert.push({ championship_id: campId, bracket_position: 'semi-1', status: 'scheduled' });
-            matchesToInsert.push({ championship_id: campId, bracket_position: 'semi-2', status: 'scheduled' });
-            matchesToInsert.push({ championship_id: campId, bracket_position: 'final-1', status: 'scheduled' });
+                },
+                {
+                    championship_id: campId,
+                    bracket_position: 'semi-2',
+                    team_a_id: selectedQualifiers[1], // 2º colocado
+                    team_b_id: selectedQualifiers[2], // 3º colocado
+                    status: 'scheduled',
+                },
+                {
+                    championship_id: campId,
+                    bracket_position: 'final-1',
+                    status: 'scheduled',
+                }
+            ];
 
             await supabase.from('championship_matches').insert(matchesToInsert);
             setIsBracketModalOpen(false);
@@ -611,7 +619,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
 
                 <Modal isOpen={isBracketModalOpen} onClose={() => setIsBracketModalOpen(false)} title="Gerar Mata-Mata" footer={<Button onClick={handleGenerateKnockout} disabled={saving}>Gerar</Button>}>
                     <div className="space-y-4">
-                        <p className="text-sm">Selecione 8 times na ordem de classificação:</p>
+                        <p className="text-sm">Selecione 4 times na ordem de classificação (1º ao 4º):</p>
                         <div className="max-h-60 overflow-y-auto space-y-1">
                             {teams.map(t => (
                                 <label key={t.id} className="flex items-center gap-2 p-1 hover:bg-gray-100 rounded cursor-pointer">
