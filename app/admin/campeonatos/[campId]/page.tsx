@@ -48,7 +48,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
         team_b_id: '',
         score_a: '0',
         score_b: '0',
-        round: '1',
+        stage: 'group',
         status: 'completed' as 'scheduled' | 'completed'
     });
 
@@ -329,7 +329,8 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 team_b_id: manualMatchForm.team_b_id,
                 score_a: parseInt(manualMatchForm.score_a) || 0,
                 score_b: parseInt(manualMatchForm.score_b) || 0,
-                round: parseInt(manualMatchForm.round) || null,
+                round: manualMatchForm.stage === 'group' ? 1 : null,
+                bracket_position: manualMatchForm.stage !== 'group' ? manualMatchForm.stage : null,
                 status: manualMatchForm.status,
                 played_at: manualMatchForm.status === 'completed' ? new Date().toISOString() : null
             });
@@ -364,7 +365,8 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                         <h1 className="text-4xl font-bold text-gray-900 mb-2">{championship.name}</h1>
                         <p className="text-gray-600">{championship.location} - {new Date(championship.start_date).toLocaleDateString('pt-BR')}</p>
                         <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase ${championship.status === 'in_progress' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {championship.status}
+                            {championship.status === 'in_progress' ? 'Em Andamento' :
+                                championship.status === 'completed' ? 'Finalizado' : 'Não Iniciado'}
                         </span>
                     </div>
 
@@ -493,7 +495,12 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                                             <TableBody>
                                                 {matches.map((m) => (
                                                     <TableRow key={m.id}>
-                                                        <TableCell className="font-bold text-gray-400">R{m.round || '-'}</TableCell>
+                                                        <TableCell className="font-bold text-gray-400 whitespace-nowrap">
+                                                            {m.bracket_position === 'final-1' ? 'FINAL' :
+                                                                m.bracket_position?.startsWith('semi') ? 'SEMI' :
+                                                                    m.bracket_position?.startsWith('qf') ? 'QUARTAS' :
+                                                                        `G${m.round || '1'}`}
+                                                        </TableCell>
                                                         <TableCell>
                                                             <div className="flex flex-col">
                                                                 <span className="font-medium">{m.team_a?.name || '?'}</span>
@@ -605,7 +612,15 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                             <Input type="number" placeholder="Gols B" value={manualMatchForm.score_b} onChange={e => setManualMatchForm({ ...manualMatchForm, score_b: e.target.value })} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <Input type="number" placeholder="Rodada" value={manualMatchForm.round} onChange={e => setManualMatchForm({ ...manualMatchForm, round: e.target.value })} />
+                            <Select value={manualMatchForm.stage} onValueChange={(v: any) => setManualMatchForm({ ...manualMatchForm, stage: v })}>
+                                <SelectTrigger><SelectValue placeholder="Fase" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="group">Fase de Grupos</SelectItem>
+                                    <SelectItem value="qf-1">Quartas de Final</SelectItem>
+                                    <SelectItem value="semi-1">Semi-Final</SelectItem>
+                                    <SelectItem value="final-1">Final</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Select value={manualMatchForm.status} onValueChange={(v: any) => setManualMatchForm({ ...manualMatchForm, status: v })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>

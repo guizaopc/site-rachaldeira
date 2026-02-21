@@ -46,7 +46,6 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
         `)
         .eq('championship_id', campId);
 
-    // Buscar partidas
     const { data: matches } = await supabase
         .from('championship_matches')
         .select(`
@@ -54,8 +53,6 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
             team_a:team_a_id (name),
             team_b:team_b_id (name)
         `)
-        .eq('id', campId) // Oops, this should be championship_id, but keeping consistent with current logic if it works
-        // Wait, the previous version had championship_id, let me fix it to championship_id
         .eq('championship_id', campId)
         .order('round', { ascending: true });
 
@@ -134,7 +131,7 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                                 <span className="flex items-center gap-1.5"><Calendar size={14} /> {new Date(championship.start_date).toLocaleDateString('pt-BR')}</span>
                                 <span>📍 {championship.location}</span>
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${championship.status === 'in_progress' ? 'bg-green-100 text-green-700' :
-                                        championship.status === 'not_started' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                                    championship.status === 'not_started' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
                                     }`}>
                                     {championship.status === 'in_progress' ? 'Em Andamento' :
                                         championship.status === 'not_started' ? 'Não Iniciado' : 'Finalizado'}
@@ -202,8 +199,8 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                                         <TableRow key={team.id} className={idx < 4 ? 'bg-white font-medium' : ''}>
                                             <TableCell className="text-center">
                                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                        idx === 1 ? 'bg-gray-100 text-gray-600' :
-                                                            idx === 2 ? 'bg-orange-100 text-orange-700' : 'text-gray-400'
+                                                    idx === 1 ? 'bg-gray-100 text-gray-600' :
+                                                        idx === 2 ? 'bg-orange-100 text-orange-700' : 'text-gray-400'
                                                     }`}>
                                                     {idx + 1}
                                                 </span>
@@ -269,8 +266,11 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                                             ) : (
                                                 <span className="text-[10px] font-bold text-gray-400 uppercase">VS</span>
                                             )}
-                                            <span className="text-[9px] text-gray-400 font-bold mt-1">
-                                                {match.round ? `Rodada ${match.round}` : 'Mata-mata'}
+                                            <span className="text-[9px] text-gray-400 font-bold mt-1 uppercase">
+                                                {match.bracket_position === 'final-1' ? 'Final' :
+                                                    match.bracket_position?.startsWith('semi') ? 'Semi-final' :
+                                                        match.bracket_position?.startsWith('qf') ? 'Quartas' :
+                                                            `Rodada ${match.round || 1}`}
                                             </span>
                                         </div>
                                         <div className="flex-1 text-left pl-4">
