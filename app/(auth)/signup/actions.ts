@@ -9,7 +9,6 @@ export async function signUpAction(formData: FormData) {
     const password = formData.get('password') as string;
     const position = formData.get('position') as string;
     const age = formData.get('age') as string;
-    const cpf = formData.get('cpf') as string;
     const phone = formData.get('phone') as string;
     const photo = formData.get('photo') as File | null;
 
@@ -68,7 +67,6 @@ export async function signUpAction(formData: FormData) {
                 name,
                 email,
                 age: parseInt(age) || 0,
-                cpf,
                 phone,
                 position,
                 photo_url

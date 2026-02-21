@@ -21,7 +21,6 @@ export default function AdminIntegrantesPage() {
     const [formData, setFormData] = useState({
         name: '',
         age: '',
-        cpf: '',
         phone: '',
         email: '',
         position: '',
@@ -68,7 +67,6 @@ export default function AdminIntegrantesPage() {
             setFormData({
                 name: member.name,
                 age: member.age?.toString() || '',
-                cpf: member.cpf || '',
                 phone: member.phone || '',
                 email: member.email,
                 position: member.position || '',
@@ -80,7 +78,6 @@ export default function AdminIntegrantesPage() {
             setFormData({
                 name: '',
                 age: '',
-                cpf: '',
                 phone: '',
                 email: '',
                 position: '',
@@ -121,7 +118,6 @@ export default function AdminIntegrantesPage() {
             const memberData = {
                 name: formData.name,
                 age: formData.age ? parseInt(formData.age) : null,
-                cpf: formData.cpf || null,
                 phone: formData.phone || null,
                 email: formData.email,
                 position: formData.position || null,
@@ -395,22 +391,14 @@ export default function AdminIntegrantesPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="cpf">CPF</Label>
+                                <Label htmlFor="phone">Telefone</Label>
                                 <Input
-                                    id="cpf"
-                                    value={formData.cpf}
-                                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                                    id="phone"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="(00) 00000-0000"
                                 />
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">Telefone</Label>
-                            <Input
-                                id="phone"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                placeholder="(00) 00000-0000"
-                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Foto</Label>

@@ -62,7 +62,6 @@ voting_periods
 | `id` | UUID (PK) | ID único |
 | `name` | TEXT | Nome completo |
 | `age` | INTEGER | Idade |
-| `cpf` | TEXT | CPF |
 | `phone` | TEXT | Telefone |
 | `email` | TEXT (UNIQUE) | E-mail |
 | `photo_url` | TEXT | URL da foto (Supabase Storage) |

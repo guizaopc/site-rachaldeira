@@ -19,7 +19,6 @@ export default function SignupPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [position, setPosition] = useState('');
     const [age, setAge] = useState('');
-    const [cpf, setCpf] = useState('');
     const [phone, setPhone] = useState('');
     const [photo, setPhoto] = useState<File | null>(null);
     const [error, setError] = useState('');
@@ -53,7 +52,6 @@ export default function SignupPage() {
             formData.append('password', password);
             formData.append('position', position);
             formData.append('age', age);
-            formData.append('cpf', cpf);
             formData.append('phone', phone);
 
             if (photo) {
@@ -145,30 +143,17 @@ export default function SignupPage() {
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="age">Idade *</Label>
-                                <Input
-                                    id="age"
-                                    type="number"
-                                    placeholder="Sua idade"
-                                    value={age}
-                                    onChange={(e) => setAge(e.target.value)}
-                                    required
-                                    min="1"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="cpf">CPF *</Label>
-                                <Input
-                                    id="cpf"
-                                    type="text"
-                                    placeholder="000.000.000-00"
-                                    value={cpf}
-                                    onChange={(e) => setCpf(e.target.value)}
-                                    required
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="age">Idade *</Label>
+                            <Input
+                                id="age"
+                                type="number"
+                                placeholder="Sua idade"
+                                value={age}
+                                onChange={(e) => setAge(e.target.value)}
+                                required
+                                min="1"
+                            />
                         </div>
 
                         <div className="space-y-2">
