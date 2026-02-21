@@ -528,16 +528,22 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle>Times ({teams.length})</CardTitle>
-                                <Button size="sm" variant="ghost" onClick={() => setIsTeamModalOpen(true)}><Plus size={16} /></Button>
+                                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setIsTeamModalOpen(true)}>
+                                    <Plus size={14} /> Novo Time
+                                </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {teams.map(t => (
                                     <div key={t.id} className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="font-bold truncate">{t.name}</span>
-                                            <div className="flex gap-1">
-                                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { setSelectedTeam(t); setIsPlayerModalOpen(true); }}><Users size={12} /></Button>
-                                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500" onClick={() => handleDeleteTeam(t.id)}><Trash2 size={12} /></Button>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="Gerenciar Jogadores" onClick={() => { setSelectedTeam(t); setIsPlayerModalOpen(true); }}>
+                                                    <Users size={16} />
+                                                </Button>
+                                                <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-red-600 hover:text-red-700 border-red-100 hover:border-red-200" title="Excluir Time" onClick={() => handleDeleteTeam(t.id)}>
+                                                    <Trash2 size={16} />
+                                                </Button>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-1">
