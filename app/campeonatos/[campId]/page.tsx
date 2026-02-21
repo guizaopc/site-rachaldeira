@@ -50,8 +50,8 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
         .from('championship_matches')
         .select(`
             *,
-            team_a:team_a_id (name),
-            team_b:team_b_id (name)
+            team_a:team_a_id (name, logo_url),
+            team_b:team_b_id (name, logo_url)
         `)
         .eq('championship_id', campId)
         .order('round', { ascending: true });

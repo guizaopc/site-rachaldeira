@@ -95,8 +95,8 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
             .from('championship_matches')
             .select(`
                 *,
-                team_a:team_a_id(name),
-                team_b:team_b_id(name)
+                team_a:team_a_id(name, logo_url),
+                team_b:team_b_id(name, logo_url)
             `)
             .eq('championship_id', campId)
             .order('round', { ascending: true })
@@ -628,8 +628,10 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                                 <SelectTrigger><SelectValue placeholder="Fase" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="group">Fase de Grupos</SelectItem>
-                                    <SelectItem value="qf-1">Quartas de Final</SelectItem>
-                                    <SelectItem value="semi-1">Semi-Final</SelectItem>
+                                    <SelectItem value="qf-1">Quartas 1 (para Semi 1)</SelectItem>
+                                    <SelectItem value="qf-2">Quartas 2 (para Semi 2)</SelectItem>
+                                    <SelectItem value="semi-1">Semi 1</SelectItem>
+                                    <SelectItem value="semi-2">Semi 2</SelectItem>
                                     <SelectItem value="final-1">Final</SelectItem>
                                 </SelectContent>
                             </Select>
