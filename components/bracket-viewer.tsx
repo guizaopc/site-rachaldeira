@@ -142,7 +142,7 @@ export function BracketViewer({ matches, campId }: BracketViewerProps) {
     const COLUMN_W = 210;
 
     return (
-        <div className="bg-[#fcfdfe] border border-gray-100 rounded-3xl p-12 shadow-sm relative overflow-hidden">
+        <div className="bg-[#fcfdfe] border border-gray-100 rounded-3xl p-6 md:p-12 shadow-sm relative overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/30 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-green-50/20 rounded-full -ml-32 -mb-32 blur-3xl opacity-50" />
 

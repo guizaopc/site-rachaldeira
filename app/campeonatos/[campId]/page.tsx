@@ -180,47 +180,49 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                         <CardHeader className="bg-black/20 border-b border-white/10">
                             <CardTitle className="text-lg">📊 {championship.format === 'bracket' ? 'Classificação — Fase de Grupos' : 'Classificação'}</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader className="bg-white/5">
-                                    <TableRow className="border-white/10 hover:bg-transparent">
-                                        <TableHead className="w-16 text-center font-bold text-gray-300">Pos</TableHead>
-                                        <TableHead className="font-bold text-gray-300">Time</TableHead>
-                                        <TableHead className="text-center font-bold text-gray-300">PTS</TableHead>
-                                        <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">PJ</TableHead>
-                                        <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">V</TableHead>
-                                        <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">E</TableHead>
-                                        <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">D</TableHead>
-                                        <TableHead className="text-center font-medium text-gray-400 uppercase text-[10px]">SG</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {standings.map((team, idx) => (
-                                        <TableRow key={team.id} className={`border-white/5 hover:bg-white/5 transition-colors ${idx < 4 ? 'bg-white/5 font-medium' : ''}`}>
-                                            <TableCell className="text-center">
-                                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${idx === 0 ? 'bg-yellow-500 text-black' :
-                                                    idx === 1 ? 'bg-gray-400 text-black' :
-                                                        idx === 2 ? 'bg-amber-600 text-white' : 'text-gray-500'
-                                                    }`}>
-                                                    {idx + 1}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="font-bold text-gray-100">
-                                                <div className="flex items-center gap-3">
-                                                    {team.logo_url && <img src={team.logo_url} className="w-8 h-8 object-contain shadow-sm" alt="" />}
-                                                    {team.name}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center font-black text-yellow-500 text-lg">{team.points}</TableCell>
-                                            <TableCell className="text-center hidden md:table-cell text-gray-300">{team.played}</TableCell>
-                                            <TableCell className="text-center hidden md:table-cell text-gray-300">{team.wins}</TableCell>
-                                            <TableCell className="text-center hidden md:table-cell text-gray-500">{team.draws}</TableCell>
-                                            <TableCell className="text-center hidden md:table-cell text-gray-500">{team.losses}</TableCell>
-                                            <TableCell className="text-center font-semibold text-gray-300">{team.goalDiff}</TableCell>
+                        <CardContent className="p-0 overflow-x-auto scrollbar-thin scrollbar-thumb-white/20">
+                            <div className="min-w-[600px]">
+                                <Table>
+                                    <TableHeader className="bg-white/5">
+                                        <TableRow className="border-white/10 hover:bg-transparent">
+                                            <TableHead className="w-16 text-center font-bold text-gray-300">Pos</TableHead>
+                                            <TableHead className="font-bold text-gray-300">Time</TableHead>
+                                            <TableHead className="text-center font-bold text-gray-300">PTS</TableHead>
+                                            <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">PJ</TableHead>
+                                            <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">V</TableHead>
+                                            <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">E</TableHead>
+                                            <TableHead className="text-center font-medium hidden md:table-cell text-gray-400 uppercase text-[10px]">D</TableHead>
+                                            <TableHead className="text-center font-medium text-gray-400 uppercase text-[10px]">SG</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {standings.map((team, idx) => (
+                                            <TableRow key={team.id} className={`border-white/5 hover:bg-white/5 transition-colors ${idx < 4 ? 'bg-white/5 font-medium' : ''}`}>
+                                                <TableCell className="text-center">
+                                                    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${idx === 0 ? 'bg-yellow-500 text-black' :
+                                                        idx === 1 ? 'bg-gray-400 text-black' :
+                                                            idx === 2 ? 'bg-amber-600 text-white' : 'text-gray-500'
+                                                        }`}>
+                                                        {idx + 1}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="font-bold text-gray-100">
+                                                    <div className="flex items-center gap-3">
+                                                        {team.logo_url && <img src={team.logo_url} className="w-8 h-8 object-contain shadow-sm" alt="" />}
+                                                        {team.name}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center font-black text-yellow-500 text-lg">{team.points}</TableCell>
+                                                <TableCell className="text-center hidden md:table-cell text-gray-300">{team.played}</TableCell>
+                                                <TableCell className="text-center hidden md:table-cell text-gray-300">{team.wins}</TableCell>
+                                                <TableCell className="text-center hidden md:table-cell text-gray-500">{team.draws}</TableCell>
+                                                <TableCell className="text-center hidden md:table-cell text-gray-500">{team.losses}</TableCell>
+                                                <TableCell className="text-center font-semibold text-gray-300">{team.goalDiff}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
