@@ -20,7 +20,8 @@ export default async function AdminDashboardPage() {
     // 2. Fetch Members Count
     const { count: membersCount } = await supabase
         .from('members')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
 
     // 3. Fetch Financial Balance (Income - Expense)
     const { data: transactions } = await supabase
