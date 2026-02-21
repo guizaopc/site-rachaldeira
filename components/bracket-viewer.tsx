@@ -19,7 +19,12 @@ interface BracketViewerProps {
 }
 
 export function BracketViewer({ matches, campId }: BracketViewerProps) {
-    const getMatch = (pos: string) => matches.find((m) => m.bracket_position === pos);
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const getMatch = (pos: string) => {
+        const search = normalize(pos);
+        return matches.find((m) => normalize(m.bracket_position || '') === search);
+    };
 
     const renderTeamRow = (
         team: { name: string; logo_url?: string } | null,
@@ -120,16 +125,19 @@ export function BracketViewer({ matches, campId }: BracketViewerProps) {
         return cardContent;
     };
 
-    // Identified positions for 6-team bracket
-    const qf1 = getMatch('qf-1');
-    const qf2 = getMatch('qf-2');
+    // Unified match lookup
+    const qfMatches = matches.filter(m => normalize(m.bracket_position || '').startsWith('qf')).sort((a, b) => (a.bracket_position || '').localeCompare(b.bracket_position || ''));
+
+    // We expect at least 2 QFs for a 6-team bracket, or 4 for an 8-team one.
+    // We'll show slots for at least 2.
+    const qfSlots = Math.max(2, qfMatches.length);
     const semi1 = getMatch('semi-1');
     const semi2 = getMatch('semi-2');
     const final = getMatch('final-1');
 
     // Sizing
     const MATCH_H = 86;
-    const TOTAL_COLUMN_H = 300; // Total height of the column area
+    const TOTAL_COLUMN_H = 340;
     const CONNECTOR_W = 60;
     const COLUMN_W = 210;
 
@@ -164,40 +172,43 @@ export function BracketViewer({ matches, campId }: BracketViewerProps) {
                 </div>
 
                 {/* Match Grid */}
-                <div className="flex items-center justify-center" style={{ height: TOTAL_COLUMN_H }}>
+                <div className="flex items-stretch justify-center" style={{ minHeight: TOTAL_COLUMN_H }}>
 
                     {/* QF Column */}
-                    <div className="flex flex-col h-full justify-between py-0">
-                        {renderMatchCard(qf1, 'Quartas 1')}
-                        {renderMatchCard(qf2, 'Quartas 2')}
+                    <div className="flex flex-col justify-around space-y-12">
+                        {renderMatchCard(getMatch('qf-1'), 'Quartas 1')}
+                        {renderMatchCard(getMatch('qf-2'), 'Quartas 2')}
                     </div>
 
                     {/* Connector QF -> Semi (Straight) */}
-                    <div className="relative h-full" style={{ width: CONNECTOR_W }}>
-                        <div className="absolute bg-gray-200" style={{ top: MATCH_H / 2, left: 0, width: '100%', height: 2 }} />
-                        <div className="absolute bg-gray-200" style={{ bottom: MATCH_H / 2, left: 0, width: '100%', height: 2 }} />
+                    <div className="flex flex-col justify-around" style={{ width: CONNECTOR_W }}>
+                        <div className="flex-1 flex items-center"><div className="bg-gray-200 w-full h-[2px]" /></div>
+                        <div className="flex-1 flex items-center"><div className="bg-gray-200 w-full h-[2px]" /></div>
                     </div>
 
                     {/* SEMI Column */}
-                    <div className="flex flex-col h-full justify-between py-0">
+                    <div className="flex flex-col justify-around space-y-12">
                         {renderMatchCard(semi1, 'Semi 1')}
                         {renderMatchCard(semi2, 'Semi 2')}
                     </div>
 
                     {/* Connector Semi -> Final (Fork) */}
-                    <div className="relative h-full" style={{ width: CONNECTOR_W }}>
-                        {/* Horizontal start top */}
-                        <div className="absolute bg-gray-200" style={{ top: MATCH_H / 2, left: 0, width: '50%', height: 2 }} />
-                        {/* Horizontal start bottom */}
-                        <div className="absolute bg-gray-200" style={{ bottom: MATCH_H / 2, left: 0, width: '50%', height: 2 }} />
-                        {/* Vertical line connecting them */}
-                        <div className="absolute bg-gray-200" style={{ top: MATCH_H / 2, bottom: MATCH_H / 2, left: '50%', width: 2 }} />
-                        {/* Horizontal line to Final */}
+                    <div className="relative flex flex-col justify-around" style={{ width: CONNECTOR_W }}>
+                        {/* Fork structure using flex boxes for alignment */}
+                        <div className="flex-1 flex items-center">
+                            <div className="bg-gray-200 w-1/2 h-[2px]" />
+                        </div>
+                        <div className="flex-1 flex items-center">
+                            <div className="bg-gray-200 w-1/2 h-[2px]" />
+                        </div>
+                        {/* Vertical bar of the fork */}
+                        <div className="absolute bg-gray-200" style={{ top: '25%', bottom: '25%', left: '50%', width: 2 }} />
+                        {/* Center stem to final */}
                         <div className="absolute bg-gray-200" style={{ top: '50%', left: '50%', width: '50%', height: 2 }} />
                     </div>
 
                     {/* FINAL Column */}
-                    <div className="flex flex-col h-full justify-center">
+                    <div className="flex flex-col justify-center">
                         {renderMatchCard(final, 'Grande Final')}
                     </div>
 

@@ -514,10 +514,15 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                                                                         `G${m.round || '1'}`}
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{m.team_a?.name || '?'}</span>
-                                                                <span className="text-xs text-gray-400">vs</span>
-                                                                <span className="font-medium">{m.team_b?.name || '?'}</span>
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    {m.team_a?.logo_url && <img src={m.team_a.logo_url} className="w-5 h-5 object-contain" alt="" />}
+                                                                    <span className="font-bold text-sm text-gray-700">{m.team_a?.name || '?'}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    {m.team_b?.logo_url && <img src={m.team_b.logo_url} className="w-5 h-5 object-contain" alt="" />}
+                                                                    <span className="font-bold text-sm text-gray-700">{m.team_b?.name || '?'}</span>
+                                                                </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="text-center">
@@ -651,10 +656,21 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                         <p className="text-sm">Selecione 6 times na ordem de classificação (1º ao 6º):</p>
                         <div className="max-h-60 overflow-y-auto space-y-1">
                             {teams.map(t => (
-                                <label key={t.id} className="flex items-center gap-2 p-1 hover:bg-gray-100 rounded cursor-pointer">
-                                    <input type="checkbox" checked={selectedQualifiers.includes(t.id)} onChange={e => e.target.checked ? setSelectedQualifiers([...selectedQualifiers, t.id]) : setSelectedQualifiers(selectedQualifiers.filter(id => id !== t.id))} />
-                                    <span>{t.name}</span>
-                                    {selectedQualifiers.includes(t.id) && <span className="ml-auto text-xs font-bold">#{selectedQualifiers.indexOf(t.id) + 1}</span>}
+                                <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked={selectedQualifiers.includes(t.id)} onChange={e => {
+                                        if (e.target.checked) {
+                                            setSelectedQualifiers([...selectedQualifiers, t.id]);
+                                        } else {
+                                            setSelectedQualifiers(selectedQualifiers.filter(id => id !== t.id));
+                                        }
+                                    }} />
+                                    {t.logo_url && <img src={t.logo_url} className="w-6 h-6 object-contain rounded-full shadow-sm" alt="" />}
+                                    <span className="font-medium text-gray-700">{t.name}</span>
+                                    {selectedQualifiers.includes(t.id) && (
+                                        <span className="ml-auto bg-blue-100 text-blue-700 text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full">
+                                            {selectedQualifiers.indexOf(t.id) + 1}
+                                        </span>
+                                    )}
                                 </label>
                             ))}
                         </div>

@@ -253,10 +253,15 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                             {matches.map(match => (
                                 <Link key={match.id} href={`/campeonatos/${campId}/partida/${match.id}`}>
                                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group flex items-center justify-between">
-                                        <div className="flex-1 text-right pr-4">
-                                            <span className="text-sm font-bold block truncate">{match.team_a?.name || 'A definir'}</span>
+                                        <div className="flex-1 flex items-center justify-end gap-3 pr-4">
+                                            <span className="text-sm font-bold truncate">{match.team_a?.name || 'A definir'}</span>
+                                            {match.team_a?.logo_url ? (
+                                                <img src={match.team_a.logo_url} className="w-8 h-8 object-contain" alt="" />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-[8px] text-gray-300">?</div>
+                                            )}
                                         </div>
-                                        <div className="flex flex-col items-center justify-center min-w-[80px] py-1 px-3 bg-gray-50 rounded-lg group-hover:bg-blue-50 transition-colors">
+                                        <div className="flex flex-col items-center justify-center min-w-[90px] py-1 px-3 bg-gray-50 rounded-lg group-hover:bg-blue-50 transition-colors">
                                             {match.status === 'completed' ? (
                                                 <div className="flex items-center gap-2 font-black text-lg">
                                                     <span className={match.score_a > match.score_b ? 'text-blue-600' : ''}>{match.score_a}</span>
@@ -273,8 +278,13 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                                                             `Rodada ${match.round || 1}`}
                                             </span>
                                         </div>
-                                        <div className="flex-1 text-left pl-4">
-                                            <span className="text-sm font-bold block truncate">{match.team_b?.name || 'A definir'}</span>
+                                        <div className="flex-1 flex items-center justify-start gap-3 pl-4">
+                                            {match.team_b?.logo_url ? (
+                                                <img src={match.team_b.logo_url} className="w-8 h-8 object-contain" alt="" />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-[8px] text-gray-300">?</div>
+                                            )}
+                                            <span className="text-sm font-bold truncate">{match.team_b?.name || 'A definir'}</span>
                                         </div>
                                     </div>
                                 </Link>
