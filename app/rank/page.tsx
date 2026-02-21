@@ -49,27 +49,27 @@ export default async function RankingPage() {
         .select('*')
         .order('name');
 
-    // Buscar scouts gerais (todos os tempos para simplificar)
+    // Buscar rachas fechados para filtrar scouts e contar destaques
+    const { data: closedRachas } = await supabase
+        .from('rachas')
+        .select('id, top1_id, top2_id, top3_id, sheriff_id')
+        .eq('status', 'closed');
+
+    const closedRachaIds = closedRachas?.map(r => r.id) || [];
+
+    // Buscar scouts de rachas (apenas de rachas encerrados)
     const { data: rachaScouts } = await supabase
         .from('racha_scouts')
-        .select('*');
-
-    const { data: matchScouts } = await supabase
-        .from('match_player_stats')
-        .select('*');
+        .select('*')
+        .in('racha_id', closedRachaIds);
 
     const { data: attendance } = await supabase
         .from('racha_attendance')
         .select('*')
-        .eq('status', 'in');
+        .eq('status', 'in')
+        .in('racha_id', closedRachaIds);
 
-    // Buscar rachas para contar destaques
-    const { data: allRachas } = await supabase
-        .from('rachas')
-        .select('top1_id, top2_id, top3_id, sheriff_id')
-        .eq('status', 'closed');
-
-    // Buscar último racha fechado para destaques semanais (ordenado por quando foi fechado, não pela data do racha)
+    // Buscar último racha fechado para destaques semanais
     const { data: lastRacha } = await supabase
         .from('rachas')
         .select('*')
@@ -80,18 +80,10 @@ export default async function RankingPage() {
 
     let weeklyHighlights = null;
     if (lastRacha) {
-        // Buscar scouts deste racha
-        const { data: weekScouts } = await supabase
-            .from('racha_scouts')
-            .select('*')
-            .eq('racha_id', lastRacha.id);
+        // Buscar scouts deste racha para conferência interna (opcional, já temos no rachaScouts se for o mesmo id)
+        const weekScouts = rachaScouts?.filter(s => s.racha_id === lastRacha.id) || [];
 
-        // Calcular destaques baseados em números se houver scouts
-        const topScorer = weekScouts && weekScouts.length > 0 ? [...weekScouts].sort((a, b) => b.goals - a.goals)[0] : null;
-        const topAssister = weekScouts && weekScouts.length > 0 ? [...weekScouts].sort((a, b) => b.assists - a.assists)[0] : null;
-        const topSaver = weekScouts && weekScouts.length > 0 ? [...weekScouts].sort((a, b) => b.difficult_saves - a.difficult_saves)[0] : null;
-
-        // Buscar nomes
+        // Buscar nomes dos destaques manuais
         const top1 = members?.find(m => m.id === lastRacha.top1_id);
         const top2 = members?.find(m => m.id === lastRacha.top2_id);
         const top3 = members?.find(m => m.id === lastRacha.top3_id);
@@ -116,29 +108,22 @@ export default async function RankingPage() {
         votes = votesData || [];
     }
 
-    // Calcular badges para cada membro
+    // Calcular rankings para cada membro (APENAS RACHAS ENCERRADOS)
     const rankings = members?.map(member => {
         const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
-        const memberMatchScouts = matchScouts?.filter(s => s.member_id === member.id) || [];
         const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
 
-        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
-
-        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
-
-        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
+        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
+        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
+        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
 
         const participations = memberAttendance.length;
 
-        // Calcular Pontos (Highlights)
-        // Cada destaque vale 1 ponto
-        const top1Count = allRachas?.filter(r => r.top1_id === member.id).length || 0;
-        const top2Count = allRachas?.filter(r => r.top2_id === member.id).length || 0;
-        const top3Count = allRachas?.filter(r => r.top3_id === member.id).length || 0;
-        const sheriffCount = allRachas?.filter(r => r.sheriff_id === member.id).length || 0;
+        // Calcular Pontos (Highlights) baseados nas marcações manuais nos rachas fechados
+        const top1Count = closedRachas?.filter(r => r.top1_id === member.id).length || 0;
+        const top2Count = closedRachas?.filter(r => r.top2_id === member.id).length || 0;
+        const top3Count = closedRachas?.filter(r => r.top3_id === member.id).length || 0;
+        const sheriffCount = closedRachas?.filter(r => r.sheriff_id === member.id).length || 0;
 
         const points = top1Count + top2Count + top3Count + sheriffCount;
 
@@ -151,13 +136,15 @@ export default async function RankingPage() {
             assists,
             saves,
             participations,
-            fominhaPct: allRachas && allRachas.length > 0 ? Math.round((memberAttendance.length / allRachas.length) * 100) : 0,
+            fominhaPct: closedRachas && closedRachas.length > 0 ? Math.round((memberAttendance.length / closedRachas.length) * 100) : 0,
             top1Count,
             sheriffCount,
             craqueVotes,
             xerifeVotes,
+            points // Adicionado formalmente
         };
     }) || [];
+
 
     // Determinar badges (top 1 de cada categoria)
     const maxGoals = Math.max(...rankings.map(r => r.goals), 0);

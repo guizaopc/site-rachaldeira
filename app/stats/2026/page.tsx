@@ -12,57 +12,38 @@ export default async function Stats2026Page() {
         .select('*')
         .order('name');
 
-    // Buscar scouts de rachas de 2026
+    // Buscar rachas fechados de 2026
+    const { data: closedRachas } = await supabase
+        .from('rachas')
+        .select('id')
+        .eq('status', 'closed')
+        .gte('date_time', `${year}-01-01`)
+        .lt('date_time', `${year + 1}-01-01`);
+
+    const closedRachaIds = closedRachas?.map(r => r.id) || [];
+
+    // Buscar scouts de rachas de 2026 (apenas encerrados)
     const { data: rachaScouts } = await supabase
         .from('racha_scouts')
-        .select(`
-      *,
-      rachas!inner(date_time)
-    `)
-        .gte('rachas.date_time', `${year}-01-01`)
-        .lt('rachas.date_time', `${year + 1}-01-01`);
+        .select('*')
+        .in('racha_id', closedRachaIds);
 
-    // Buscar scouts de partidas de campeonatos de 2026
-    const { data: matchScouts } = await supabase
-        .from('match_player_stats')
-        .select(`
-      *,
-      championship_matches!inner(
-        championships!inner(start_date)
-      )
-    `)
-        .gte('championship_matches.championships.start_date', `${year}-01-01`)
-        .lt('championship_matches.championships.start_date', `${year + 1}-01-01`);
-
-    // Buscar confirmações de presença
+    // Buscar confirmações de presença (apenas de rachas encerrados)
     const { data: attendance } = await supabase
         .from('racha_attendance')
-        .select(`
-      member_id,
-      status,
-      rachas!inner(date_time)
-    `)
+        .select('*')
         .eq('status', 'in')
-        .gte('rachas.date_time', `${year}-01-01`)
-        .lt('rachas.date_time', `${year + 1}-01-01`);
+        .in('racha_id', closedRachaIds);
 
     // Agregar estatísticas
     const stats = members?.map(member => {
         const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
-        const memberMatchScouts = matchScouts?.filter(s => s.member_id === member.id) || [];
         const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
 
-        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
-
-        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
-
-        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
-
-        const warnings = memberRachaScouts.reduce((sum, s) => sum + (s.warnings || 0), 0) +
-            memberMatchScouts.reduce((sum, s) => sum + (s.warnings || 0), 0);
+        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
+        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
+        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
+        const warnings = memberRachaScouts.reduce((sum, s) => sum + (s.warnings || 0), 0);
 
         const participations = memberAttendance.length;
 
@@ -75,6 +56,7 @@ export default async function Stats2026Page() {
             participations,
         };
     }) || [];
+
 
     // Top 3 por categoria
     const topScorers = [...stats].sort((a, b) => b.goals - a.goals).slice(0, 3);

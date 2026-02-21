@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Minus, Save, Play, X, Trophy, Shield, Medal } from 'lucide-react';
 
@@ -17,6 +18,7 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
     const [scouts, setScouts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [highlights, setHighlights] = useState({
         top1_id: '',
         top2_id: '',
@@ -96,6 +98,11 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
             return s;
         }));
     };
+
+    const filteredScouts = scouts.filter(s => {
+        const member = attendance.find(a => a.member_id === s.member_id)?.members;
+        return member?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     const handleSave = async () => {
         setSaving(true);
@@ -288,8 +295,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                     </Card>
                 ) : (
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <CardTitle>Jogadores Confirmados ({attendance.length})</CardTitle>
+                            <div className="relative w-full md:w-64">
+                                <Input
+                                    placeholder="Buscar jogador..."
+                                    value={searchTerm}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                                    className="pl-4"
+                                />
+                            </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="overflow-x-auto">
@@ -304,7 +319,7 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {scouts.map((scout) => {
+                                        {filteredScouts.map((scout) => {
                                             const member = attendance.find(a => a.member_id === scout.member_id)?.members;
                                             const isReadonly = racha.status === 'closed';
 
@@ -321,8 +336,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'goals', -1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'goals', -1)}
                                                                 disabled={isReadonly || scout.goals <= 0}
+                                                                title="Clique duplo para remover"
                                                             >
                                                                 <Minus size={16} />
                                                             </Button>
@@ -332,8 +348,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'goals', 1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'goals', 1)}
                                                                 disabled={isReadonly}
+                                                                title="Clique duplo para adicionar"
                                                             >
                                                                 <Plus size={16} />
                                                             </Button>
@@ -344,8 +361,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'assists', -1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'assists', -1)}
                                                                 disabled={isReadonly || scout.assists <= 0}
+                                                                title="Clique duplo para remover"
                                                             >
                                                                 <Minus size={16} />
                                                             </Button>
@@ -355,8 +373,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'assists', 1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'assists', 1)}
                                                                 disabled={isReadonly}
+                                                                title="Clique duplo para adicionar"
                                                             >
                                                                 <Plus size={16} />
                                                             </Button>
@@ -367,8 +386,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'difficult_saves', -1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'difficult_saves', -1)}
                                                                 disabled={isReadonly || scout.difficult_saves <= 0}
+                                                                title="Clique duplo para remover"
                                                             >
                                                                 <Minus size={16} />
                                                             </Button>
@@ -378,8 +398,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'difficult_saves', 1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'difficult_saves', 1)}
                                                                 disabled={isReadonly}
+                                                                title="Clique duplo para adicionar"
                                                             >
                                                                 <Plus size={16} />
                                                             </Button>
@@ -390,8 +411,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'warnings', -1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'warnings', -1)}
                                                                 disabled={isReadonly || scout.warnings <= 0}
+                                                                title="Clique duplo para remover"
                                                             >
                                                                 <Minus size={16} />
                                                             </Button>
@@ -401,8 +423,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => updateScout(scout.member_id, 'warnings', 1)}
+                                                                onDoubleClick={() => updateScout(scout.member_id, 'warnings', 1)}
                                                                 disabled={isReadonly}
+                                                                title="Clique duplo para adicionar"
                                                             >
                                                                 <Plus size={16} />
                                                             </Button>
@@ -416,7 +439,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                             </div>
                         </CardContent>
                     </Card>
-                )}
+                )
+
+                }
 
                 {/* Highlights Selection */}
                 {attendance.length > 0 && (
