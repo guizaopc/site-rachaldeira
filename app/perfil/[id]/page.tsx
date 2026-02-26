@@ -4,13 +4,15 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, Trophy, Activity, AlertCircle, Shield } from 'lucide-react';
+import { ArrowLeft, User, Trophy, Activity, AlertCircle, Shield, Star, Medal } from 'lucide-react';
+
+export const revalidate = 0;
 
 export default async function MemberProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const supabase = await createClient();
 
-    // Buscar dados do membro
+    // 1. Buscar dados do membro
     const { data: member, error: memberError } = await supabase
         .from('members')
         .select('*')
@@ -21,20 +23,75 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
         notFound();
     }
 
-    // Buscar estatísticas de scouts (agregado)
-    const { data: scouts } = await supabase
+    // 2. Buscar Racha de Ajustes para ignorar na contagem de jogos
+    const { data: adjRacha } = await supabase
+        .from('rachas')
+        .select('id')
+        .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)')
+        .maybeSingle();
+
+    // 3. Buscar estatísticas de scouts (Rachas Normais + Ajustes)
+    const { data: rachaScouts } = await supabase
         .from('racha_scouts')
-        .select('goals, assists, difficult_saves, warnings')
+        .select('*')
         .eq('member_id', id);
 
-    // Calcular totais
-    const stats = scouts?.reduce((acc, curr) => ({
-        goals: acc.goals + (curr.goals || 0),
-        assists: acc.assists + (curr.assists || 0),
-        saves: acc.saves + (curr.difficult_saves || 0),
-        warnings: acc.warnings + (curr.warnings || 0),
-        matches: acc.matches + 1
-    }), { goals: 0, assists: 0, saves: 0, warnings: 0, matches: 0 }) || { goals: 0, assists: 0, saves: 0, warnings: 0, matches: 0 };
+    // 4. Buscar estatísticas de Campeonatos
+    const { data: champScouts } = await supabase
+        .from('match_player_stats')
+        .select('*')
+        .eq('member_id', id);
+
+    // 5. Buscar Presenças (Jogos Reais)
+    const { data: attendance } = await supabase
+        .from('racha_attendance')
+        .select('id')
+        .eq('member_id', id)
+        .eq('status', 'in');
+
+    // 6. Buscar Destaques (Top 1, 2, 3 e Xerife) - Marcados na tabela rachas
+    const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').or(`top1_id.eq.${id},top1_extra_id.eq.${id}`);
+    const { data: rachasAsTop2 } = await supabase.from('rachas').select('id').or(`top2_id.eq.${id},top2_extra_id.eq.${id}`);
+    const { data: rachasAsTop3 } = await supabase.from('rachas').select('id').or(`top3_id.eq.${id},top3_extra_id.eq.${id}`);
+    const { data: rachasAsSheriff } = await supabase.from('rachas').select('id').or(`sheriff_id.eq.${id},sheriff_extra_id.eq.${id}`);
+
+    // Consolidação de Dados
+    const goals = (rachaScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0) +
+        (champScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0);
+
+    const assists = (rachaScouts?.reduce((acc, s) => acc + (s.assists || 0), 0) || 0) +
+        (champScouts?.reduce((acc, s) => acc + (s.assists || 0), 0) || 0);
+
+    const saves = (rachaScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0) +
+        (champScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0);
+
+    const warnings = (rachaScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0) +
+        (champScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0);
+
+    // Jogos = Presenças Reais + Ajuste Manual de Fominha
+    const manualAdjustment = rachaScouts?.find(s => s.racha_id === adjRacha?.id);
+    const matches = (attendance?.length || 0) + ((manualAdjustment as any)?.attendance_count || 0);
+
+    // Destaques (Soma das indicações nos rachas + Ajustes Manuais)
+    const top1Count = (rachasAsTop1?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0) || 0);
+    const top2Count = (rachasAsTop2?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0) || 0);
+    const top3Count = (rachasAsTop3?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0) || 0);
+    const sheriffCount = (rachasAsSheriff?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0) || 0);
+
+    const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
+
+    const stats = {
+        goals,
+        assists,
+        saves,
+        warnings,
+        matches,
+        top1Count,
+        top2Count,
+        top3Count,
+        sheriffCount,
+        points
+    };
 
     return (
         <main className="min-h-screen bg-gray-50 py-12 px-4">
@@ -152,6 +209,55 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
                                     <span className="text-lg font-bold text-gray-900">
                                         {stats.matches > 0 ? (stats.saves / stats.matches).toFixed(2) : '0.00'}
                                     </span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Destaques e Premiações */}
+                    <Card className="border-none shadow-md hover:shadow-lg transition-shadow md:col-span-2">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-gray-800">
+                                <Trophy className="text-yellow-600" />
+                                Histórico de Destaques
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="p-4 bg-yellow-50 rounded-xl text-center border border-yellow-100">
+                                    <div className="text-3xl mb-1">👑</div>
+                                    <div className="text-2xl font-black text-yellow-700">{stats.top1Count}</div>
+                                    <div className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Craque</div>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-xl text-center border border-slate-100">
+                                    <div className="text-3xl mb-1">🥈</div>
+                                    <div className="text-2xl font-black text-slate-700">{stats.top2Count}</div>
+                                    <div className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Top 2</div>
+                                </div>
+                                <div className="p-4 bg-orange-50 rounded-xl text-center border border-orange-100">
+                                    <div className="text-3xl mb-1">🥉</div>
+                                    <div className="text-2xl font-black text-orange-700">{stats.top3Count}</div>
+                                    <div className="text-[10px] font-bold uppercase text-orange-600 tracking-wider">Top 3</div>
+                                </div>
+                                <div className="p-4 bg-blue-50 rounded-xl text-center border border-blue-100">
+                                    <div className="text-3xl mb-1">👮</div>
+                                    <div className="text-2xl font-black text-blue-700">{stats.sheriffCount}</div>
+                                    <div className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">Xerife</div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl text-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Medal size={24} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-widest opacity-80">Pontuação Total de Destaques</p>
+                                        <p className="text-2xl font-black">{stats.points} pts</p>
+                                    </div>
+                                </div>
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-[10px] font-medium opacity-70">Cálculo: Craque(3), Top2(2), Top3(1), Xerife(1)</p>
                                 </div>
                             </div>
                         </CardContent>
