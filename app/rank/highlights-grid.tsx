@@ -119,7 +119,7 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
 
     return (
         <div className="w-full pb-12">
-            <div className="flex justify-end mb-4 px-4 no-print">
+            <div className="justify-end mb-4 px-4 no-print hidden md:flex">
                 <button
                     onClick={() => setIsPrintMode(!isPrintMode)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all shadow-md ${isPrintMode

@@ -15,6 +15,7 @@ export default async function RachasPage() {
         .select('*')
         .gte('date_time', now)
         .neq('status', 'closed')
+        .neq('location', 'Sistema (Manual)')
         .order('date_time', { ascending: true });
 
     // Rachas passados ou fechados
@@ -22,6 +23,7 @@ export default async function RachasPage() {
         .from('rachas')
         .select('*')
         .or(`date_time.lt.${now},status.eq.closed`)
+        .neq('location', 'Sistema (Manual)')
         .order('date_time', { ascending: false })
         .limit(10);
 

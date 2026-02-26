@@ -170,7 +170,7 @@ export default async function RankingPage() {
             top2Count,
             top3Count,
             sheriffCount,
-            craquePoints: top1Count * 3,
+            craquePoints: (top1Count * 3) + (top2Count * 2) + top3Count,
             sheriffPoints: sheriffCount * 1,
             craqueVotes,
             xerifeVotes,
@@ -278,7 +278,67 @@ export default async function RankingPage() {
                             <p className="text-blue-200 text-sm">Os melhores do último racha realizado</p>
                         </CardHeader>
                         <CardContent className="relative z-10 pt-4 pb-6 px-0 md:px-6">
-                            <div className="overflow-x-auto rounded-lg border border-white/10">
+                            {/* Mobile View - Cards Grid */}
+                            <div className="grid grid-cols-2 gap-3 md:hidden px-4">
+                                {/* Top 1 */}
+                                <div className="bg-white/10 rounded-lg p-3 text-center border border-white/10 flex flex-col justify-center min-h-[120px]">
+                                    <div className="text-2xl mb-1">👑</div>
+                                    <div className="font-bold text-yellow-300 text-[10px] uppercase mb-1">Craque</div>
+                                    <div className="font-bold text-white text-base leading-tight">
+                                        {weeklyHighlights.top1?.name || '-'}
+                                    </div>
+                                    {weeklyHighlights.top1_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top1_extra.name}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Top 2 */}
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
+                                    <div className="text-2xl mb-1">🥈</div>
+                                    <div className="font-bold text-gray-300 text-[10px] uppercase mb-1">Top 2</div>
+                                    <div className="font-bold text-white text-base leading-tight">
+                                        {weeklyHighlights.top2?.name || '-'}
+                                    </div>
+                                    {weeklyHighlights.top2_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top2_extra.name}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Top 3 */}
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
+                                    <div className="text-2xl mb-1">🥉</div>
+                                    <div className="font-bold text-orange-300 text-[10px] uppercase mb-1">Top 3</div>
+                                    <div className="font-bold text-white text-base leading-tight">
+                                        {weeklyHighlights.top3?.name || '-'}
+                                    </div>
+                                    {weeklyHighlights.top3_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top3_extra.name}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Xerife */}
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
+                                    <div className="text-2xl mb-1">👮</div>
+                                    <div className="font-bold text-blue-300 text-[10px] uppercase mb-1">Xerife</div>
+                                    <div className="font-bold text-white text-base leading-tight">
+                                        {weeklyHighlights.sheriff?.name || '-'}
+                                    </div>
+                                    {weeklyHighlights.sheriff_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.sheriff_extra.name}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Desktop View - Table */}
+                            <div className="hidden md:block overflow-x-auto rounded-lg border border-white/10">
                                 <Table>
                                     <TableHeader className="bg-blue-950/50">
                                         <TableRow className="hover:bg-transparent border-white/10">
@@ -434,52 +494,89 @@ export default async function RankingPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <Table>
-                            <TableHeader className="bg-blue-600">
-                                <TableRow className="border-none">
-                                    <TableHead className="font-bold text-white">Nome</TableHead>
-                                    <TableHead className="text-center font-bold text-white">Top 1 (3pts)</TableHead>
-                                    <TableHead className="text-center font-bold text-white">Top 2 (2pts)</TableHead>
-                                    <TableHead className="text-center font-bold text-white">Top 3 (1pt)</TableHead>
-                                    <TableHead className="text-center font-bold text-white">Xerife (1pt)</TableHead>
-                                    <TableHead className="text-center font-bold text-white bg-blue-700">Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rankingsWithBadges
-                                    .filter(p => p.points > 0)
-                                    .sort((a, b) => b.points - a.points)
-                                    .map((player) => (
-                                        <TableRow key={player.id} className="border-gray-100">
-                                            <TableCell className="font-medium text-gray-900">
-                                                {player.name}
-                                            </TableCell>
-                                            <TableCell className="text-center font-semibold">
-                                                {player.top1Count > 0 ? player.top1Count : ''}
-                                            </TableCell>
-                                            <TableCell className="text-center font-semibold">
-                                                {player.top2Count > 0 ? player.top2Count : ''}
-                                            </TableCell>
-                                            <TableCell className="text-center font-semibold">
-                                                {player.top3Count > 0 ? player.top3Count : ''}
-                                            </TableCell>
-                                            <TableCell className="text-center font-semibold">
-                                                {player.sheriffCount > 0 ? player.sheriffCount : ''}
-                                            </TableCell>
-                                            <TableCell className="text-center font-black text-gray-900 bg-gray-50/50">
-                                                {player.points}
+                        {/* Mobile View - Cards List */}
+                        <div className="md:hidden divide-y divide-gray-100">
+                            {rankingsWithBadges
+                                .filter(p => p.points > 0)
+                                .sort((a, b) => b.points - a.points)
+                                .map((player, idx) => (
+                                    <div key={player.id} className="p-4 flex items-center justify-between bg-white">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? 'bg-yellow-400 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                {idx + 1}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-gray-900">{player.name}</div>
+                                                <div className="text-[10px] text-gray-500 flex gap-2 mt-1">
+                                                    {player.top1Count > 0 && <span className="bg-yellow-50 px-1 rounded">Top 1: {player.top1Count}</span>}
+                                                    {player.top2Count > 0 && <span className="bg-gray-50 px-1 rounded">Top 2: {player.top2Count}</span>}
+                                                    {player.top3Count > 0 && <span className="bg-orange-50 px-1 rounded">Top 3: {player.top3Count}</span>}
+                                                    {player.sheriffCount > 0 && <span className="bg-blue-50 px-1 rounded">Xerife: {player.sheriffCount}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xl font-black text-blue-600">{player.points}</div>
+                                            <div className="text-[9px] font-bold uppercase text-gray-400">Pontos</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            {rankingsWithBadges.filter(p => p.points > 0).length === 0 && (
+                                <div className="p-8 text-center text-gray-500 italic">
+                                    Nenhum ponto registrado ainda.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Desktop View - Table */}
+                        <div className="hidden md:block">
+                            <Table>
+                                <TableHeader className="bg-blue-600">
+                                    <TableRow className="border-none">
+                                        <TableHead className="font-bold text-white">Nome</TableHead>
+                                        <TableHead className="text-center font-bold text-white">Top 1 (3pts)</TableHead>
+                                        <TableHead className="text-center font-bold text-white">Top 2 (2pts)</TableHead>
+                                        <TableHead className="text-center font-bold text-white">Top 3 (1pt)</TableHead>
+                                        <TableHead className="text-center font-bold text-white">Xerife (1pt)</TableHead>
+                                        <TableHead className="text-center font-bold text-white bg-blue-700">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {rankingsWithBadges
+                                        .filter(p => p.points > 0)
+                                        .sort((a, b) => b.points - a.points)
+                                        .map((player) => (
+                                            <TableRow key={player.id} className="border-gray-100">
+                                                <TableCell className="font-medium text-gray-900">
+                                                    {player.name}
+                                                </TableCell>
+                                                <TableCell className="text-center font-semibold">
+                                                    {player.top1Count > 0 ? player.top1Count : ''}
+                                                </TableCell>
+                                                <TableCell className="text-center font-semibold">
+                                                    {player.top2Count > 0 ? player.top2Count : ''}
+                                                </TableCell>
+                                                <TableCell className="text-center font-semibold">
+                                                    {player.top3Count > 0 ? player.top3Count : ''}
+                                                </TableCell>
+                                                <TableCell className="text-center font-semibold">
+                                                    {player.sheriffCount > 0 ? player.sheriffCount : ''}
+                                                </TableCell>
+                                                <TableCell className="text-center font-black text-gray-900 bg-gray-50/50">
+                                                    {player.points}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    {rankingsWithBadges.filter(p => p.points > 0).length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500 italic">
+                                                Nenhum ponto registrado ainda.
                                             </TableCell>
                                         </TableRow>
-                                    ))}
-                                {rankingsWithBadges.filter(p => p.points > 0).length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500 italic">
-                                            Nenhum ponto registrado ainda.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

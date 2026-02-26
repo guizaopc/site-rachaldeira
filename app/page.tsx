@@ -39,6 +39,7 @@ export default async function Home() {
                 .from('rachas')
                 .select('*')
                 .eq('status', 'closed')
+                .neq('location', 'Sistema (Manual)')
                 .order('updated_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -64,6 +65,7 @@ export default async function Home() {
                 .from('rachas')
                 .select('*')
                 .gte('date_time', new Date().toISOString())
+                .neq('location', 'Sistema (Manual)')
                 .order('date_time', { ascending: true })
                 .limit(3);
             rachas = rachasData || [];
