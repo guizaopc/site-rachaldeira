@@ -12,6 +12,8 @@ interface Player {
     position?: string;
     top1Count: number;
     sheriffCount: number;
+    craquePoints: number;
+    sheriffPoints: number;
     goals: number;
     assists: number;
     saves: number;
@@ -93,10 +95,10 @@ export default function RankingTable({ players }: RankingTableProps) {
                                             </TableCell>
 
                                             <TableCell className="text-center text-yellow-600 font-medium">
-                                                {player.top1Count}
+                                                {player.craquePoints}
                                             </TableCell>
                                             <TableCell className="text-center text-blue-900 font-medium">
-                                                {player.sheriffCount}
+                                                {player.sheriffPoints}
                                             </TableCell>
                                             <TableCell className="text-center text-green-700">
                                                 {player.goals}

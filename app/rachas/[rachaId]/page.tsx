@@ -6,6 +6,8 @@ import { CalendarDays, MapPin, Clock, Users, Trophy, Shield, Medal, Activity } f
 import Link from 'next/link';
 import RachaAttendance from '@/components/racha-attendance';
 import StartRachaButton from '@/components/start-racha-button';
+import OpenRachaButton from '@/components/open-racha-button';
+import ShareRachaButton from '@/components/share-racha-button';
 
 export default async function RachaDetalhesPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = await params;
@@ -104,6 +106,9 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                         <div className="flex flex-col items-end gap-2">
                             {(racha.status === 'open' || racha.status === 'locked') && (
                                 <StartRachaButton rachaId={rachaId} />
+                            )}
+                            {racha.status !== 'open' && (
+                                <OpenRachaButton rachaId={rachaId} />
                             )}
                             <Link href={`/admin/rachas/${rachaId}/scouts`}>
                                 <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
@@ -223,6 +228,7 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                             rachaId={rachaId}
                             initialStatus={userAttendanceStatus}
                             isOpen={racha.status === 'open'}
+                            isAdmin={isAdmin}
                         />
                     </CardContent>
                 </Card>
@@ -231,9 +237,25 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                                <span>✅ Confirmados (Dentro)</span>
-                                <span className="text-sm font-normal text-gray-600">{confirmedIn.length}</span>
+                            <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                    <span>✅ Confirmados (Dentro)</span>
+                                    <span className="text-sm font-normal text-gray-600">({confirmedIn.length})</span>
+                                </div>
+                                <ShareRachaButton
+                                    rachaName={racha.name}
+                                    rachaLocation={racha.location}
+                                    rachaDate={new Date(racha.date_time).toLocaleString('pt-BR', {
+                                        weekday: 'long',
+                                        day: 'numeric',
+                                        month: 'long',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        timeZone: 'America/Sao_Paulo'
+                                    })}
+                                    confirmedPlayers={confirmedIn}
+                                    rachaId={rachaId}
+                                />
                             </CardTitle>
                         </CardHeader>
                         <CardContent>

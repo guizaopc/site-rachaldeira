@@ -13,7 +13,6 @@ export default async function SorteioPage() {
         .from('rachas')
         .select('*')
         .neq('status', 'closed')
-        .gte('date_time', new Date().toISOString())
         .order('date_time', { ascending: true })
         .limit(1)
         .single();

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Minus, Save, Play, X, Trophy, Shield, Medal } from 'lucide-react';
+import { Plus, Minus, Save, Play, X, Trophy, Shield, Medal, RotateCcw } from 'lucide-react';
 
 export default function ScoutsPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = use(params);
@@ -21,9 +21,13 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
     const [searchTerm, setSearchTerm] = useState('');
     const [highlights, setHighlights] = useState({
         top1_id: '',
+        top1_extra_id: '',
         top2_id: '',
+        top2_extra_id: '',
         top3_id: '',
+        top3_extra_id: '',
         sheriff_id: '',
+        sheriff_extra_id: '',
     });
 
     useEffect(() => {
@@ -43,9 +47,13 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         setRacha(rachaData);
         setHighlights({
             top1_id: rachaData?.top1_id || '',
+            top1_extra_id: rachaData?.top1_extra_id || '',
             top2_id: rachaData?.top2_id || '',
+            top2_extra_id: rachaData?.top2_extra_id || '',
             top3_id: rachaData?.top3_id || '',
+            top3_extra_id: rachaData?.top3_extra_id || '',
             sheriff_id: rachaData?.sheriff_id || '',
+            sheriff_extra_id: rachaData?.sheriff_extra_id || '',
         });
 
         // Buscar apenas confirmados "in"
@@ -136,26 +144,38 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                 }
             }
 
-            alert('Scouts salvos com sucesso!');
+            alert('Scouts e destaques salvos com sucesso!');
             loadData();
         } catch (error: any) {
             alert('Erro ao salvar: ' + error.message);
         } finally {
             setSaving(false);
         }
+    };
 
-        // Save highlights separately to racha
-        const { error: hlError } = await supabase
-            .from('rachas')
-            .update({
-                top1_id: highlights.top1_id || null,
-                top2_id: highlights.top2_id || null,
-                top3_id: highlights.top3_id || null,
-                sheriff_id: highlights.sheriff_id || null,
-            })
-            .eq('id', rachaId);
+    const handleSaveHighlightsOnly = async () => {
+        setSaving(true);
+        const supabase = createClient();
+        try {
+            const { error: hlError } = await supabase
+                .from('rachas')
+                .update({
+                    top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
+                    top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
+                    top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
+                    top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
+                    sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
+                    sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
+                })
+                .eq('id', rachaId);
 
-        if (hlError) alert('Erro ao salvar destaques: ' + hlError.message);
+            if (hlError) throw hlError;
+            alert('Destaques atualizados com sucesso!');
+        } catch (error: any) {
+            alert('Erro ao salvar destaques: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
 
@@ -198,9 +218,13 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                 .from('rachas')
                 .update({
                     top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
+                    top1_extra_id: highlights.top1_extra_id && highlights.top1_extra_id !== 'none' ? highlights.top1_extra_id : null,
                     top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
+                    top2_extra_id: highlights.top2_extra_id && highlights.top2_extra_id !== 'none' ? highlights.top2_extra_id : null,
                     top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
+                    top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
                     sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
+                    sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
                 })
                 .eq('id', rachaId);
 
@@ -242,6 +266,48 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         }
     };
 
+    const handleReopenRacha = async () => {
+        if (!confirm('Deseja reabrir este racha? Isso permitirá editar os scouts numéricos novamente.')) return;
+
+        setSaving(true);
+        const supabase = createClient();
+        try {
+            const { error } = await supabase
+                .from('rachas')
+                .update({ status: 'in_progress' })
+                .eq('id', rachaId);
+
+            if (error) throw error;
+            alert('Racha reaberto com sucesso!');
+            loadData();
+        } catch (error: any) {
+            alert('Erro ao reabrir racha: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleOpenConfirmations = async () => {
+        if (!confirm('Deseja reabrir as confirmações para este racha? Isso mudará o status para "Aberto".')) return;
+
+        setSaving(true);
+        const supabase = createClient();
+        try {
+            const { error } = await supabase
+                .from('rachas')
+                .update({ status: 'open' })
+                .eq('id', rachaId);
+
+            if (error) throw error;
+            alert('Confirmações reabertas!');
+            loadData();
+        } catch (error: any) {
+            alert('Erro ao abrir confirmações: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
     }
@@ -268,9 +334,27 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
 
                     <div className="flex flex-wrap gap-2 w-full md:w-auto">
                         {racha.status === 'in_progress' && (
-                            <Button variant="danger" onClick={handleCloseAndSaveRacha} disabled={saving} size="lg">
-                                <Save size={16} className="mr-2" />
-                                {saving ? 'Salvando e Fechando...' : 'Fechar Racha e Salvar Scouts'}
+                            <>
+                                <Button variant="outline" onClick={handleSave} disabled={saving} size="lg">
+                                    <Save size={16} className="mr-2" />
+                                    {saving ? 'Salvando...' : 'Salvar Scouts'}
+                                </Button>
+                                <Button variant="danger" onClick={handleCloseAndSaveRacha} disabled={saving} size="lg">
+                                    <X size={16} className="mr-2" />
+                                    {saving ? 'Finalizando...' : 'Finalizar e Fechar Racha'}
+                                </Button>
+                            </>
+                        )}
+                        {racha.status !== 'open' && (
+                            <Button variant="outline" onClick={handleOpenConfirmations} disabled={saving} size="lg" className="border-blue-200 text-blue-600 hover:bg-blue-50">
+                                <RotateCcw size={16} className="mr-2" />
+                                {saving ? 'Abrindo...' : 'Reabrir Confirmações'}
+                            </Button>
+                        )}
+                        {racha.status === 'closed' && (
+                            <Button variant="outline" onClick={handleReopenRacha} disabled={saving} size="lg" className="border-gray-200 text-gray-600 hover:bg-gray-50">
+                                <Play size={16} className="mr-2" />
+                                {saving ? 'Reabrindo...' : 'Reativar Scouts (Em Andamento)'}
                             </Button>
                         )}
                         <Button onClick={() => router.push('/admin/rachas')} variant="secondary" size="lg">
@@ -280,9 +364,9 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                 </div>
 
                 {racha.status === 'closed' && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                        <p className="text-yellow-800">
-                            ⚠️ Este racha já foi fechado. Os scouts estão finalizados e não podem ser editados.
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex justify-between items-center">
+                        <p className="text-blue-800">
+                            ℹ️ Este racha foi finalizado. Os scouts numéricos estão travados, mas você ainda pode atualizar os <b>Destaques</b> abaixo.
                         </p>
                     </div>
                 )}
@@ -454,100 +538,152 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        🥇 Top 1 (Melhor do Dia)
-                                    </label>
-                                    <Select
-                                        value={highlights.top1_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top1_id: value })}
-                                        disabled={racha.status === 'closed'}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {attendance.map((a) => (
-                                                <SelectItem key={a.member_id} value={a.member_id}>
-                                                    {a.members.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none">🥇 Top 1</label>
+                                        <Select
+                                            value={highlights.top1_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top1_id: value })}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 1 Extra</label>
+                                        <Select
+                                            value={highlights.top1_extra_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top1_extra_id: value })}
+                                        >
+                                            <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 1..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        🥈 Top 2
-                                    </label>
-                                    <Select
-                                        value={highlights.top2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top2_id: value })}
-                                        disabled={racha.status === 'closed'}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {attendance.map((a) => (
-                                                <SelectItem key={a.member_id} value={a.member_id}>
-                                                    {a.members.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none">🥈 Top 2</label>
+                                        <Select
+                                            value={highlights.top2_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top2_id: value })}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-400 italicfont-medium">+ Top 2 Extra</label>
+                                        <Select
+                                            value={highlights.top2_extra_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top2_extra_id: value })}
+                                        >
+                                            <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 2..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        🥉 Top 3
-                                    </label>
-                                    <Select
-                                        value={highlights.top3_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top3_id: value })}
-                                        disabled={racha.status === 'closed'}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {attendance.map((a) => (
-                                                <SelectItem key={a.member_id} value={a.member_id}>
-                                                    {a.members.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none">🥉 Top 3</label>
+                                        <Select
+                                            value={highlights.top3_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top3_id: value })}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-400 italic">+ Top 3 Extra</label>
+                                        <Select
+                                            value={highlights.top3_extra_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, top3_extra_id: value })}
+                                        >
+                                            <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 3..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        👮 Xerife (Melhor Defensor)
-                                    </label>
-                                    <Select
-                                        value={highlights.sheriff_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, sheriff_id: value })}
-                                        disabled={racha.status === 'closed'}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {attendance.map((a) => (
-                                                <SelectItem key={a.member_id} value={a.member_id}>
-                                                    {a.members.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none">👮 Xerife</label>
+                                        <Select
+                                            value={highlights.sheriff_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, sheriff_id: value })}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-400 italic">+ Xerife Extra</label>
+                                        <Select
+                                            value={highlights.sheriff_extra_id}
+                                            onValueChange={(value) => setHighlights({ ...highlights, sheriff_extra_id: value })}
+                                        >
+                                            <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Xerife..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {attendance.map((a) => (
+                                                    <SelectItem key={a.member_id} value={a.member_id}>{a.members.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
+                            </div>
+
+                            <div className="mt-8 pt-6 border-t flex justify-end">
+                                <Button
+                                    onClick={handleSaveHighlightsOnly}
+                                    disabled={saving}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                                >
+                                    <Trophy size={18} className="mr-2" />
+                                    {saving ? 'Atualizando...' : 'Salvar/Atualizar Destaques'}
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
                 )}
-
-
             </div>
         </main>
     );

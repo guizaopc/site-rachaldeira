@@ -4,15 +4,16 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Check, X } from 'lucide-react';
+import { Check, X, RotateCcw } from 'lucide-react';
 
 interface RachaAttendanceProps {
     rachaId: string;
     initialStatus: 'in' | 'out' | null;
     isOpen: boolean;
+    isAdmin?: boolean;
 }
 
-export default function RachaAttendance({ rachaId, initialStatus, isOpen }: RachaAttendanceProps) {
+export default function RachaAttendance({ rachaId, initialStatus, isOpen, isAdmin }: RachaAttendanceProps) {
     const [status, setStatus] = useState<'in' | 'out' | null>(initialStatus);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -86,13 +87,35 @@ export default function RachaAttendance({ rachaId, initialStatus, isOpen }: Rach
     if (!isOpen) {
         return (
             <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center gap-2 text-yellow-800 font-semibold mb-1">
-                    <span className="text-xl">⚠️</span>
-                    Confirmações Encerradas
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 text-yellow-800 font-semibold mb-1">
+                            <span className="text-xl">⚠️</span>
+                            Confirmações Encerradas
+                        </div>
+                        <p className="text-yellow-700 text-sm">
+                            Rachaldeira em andamento ou fechada.
+                        </p>
+                    </div>
+                    {isAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                                if (confirm('Deseja reabrir as confirmações?')) {
+                                    setLoading(true);
+                                    await supabase.from('rachas').update({ status: 'open' }).eq('id', rachaId);
+                                    router.refresh();
+                                    setLoading(false);
+                                }
+                            }}
+                            className="border-yellow-300 text-yellow-800 hover:bg-yellow-100 gap-2 font-bold"
+                        >
+                            <RotateCcw size={16} />
+                            REABRIR CONFIRMAÇÕES
+                        </Button>
+                    )}
                 </div>
-                <p className="text-yellow-700 text-sm">
-                    Rachaldeira em andamento ou fechada.
-                </p>
             </div>
         );
     }
