@@ -54,7 +54,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
                         {/* Logo Simplificada */}
                         <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity relative z-50">
                             <NextImage
-                                src="https://pqroxmeyuicutatbessb.supabase.co/storage/v1/object/public/Fotos/logo%20rachaldeira.png"
+                                src="https://pqroxmeyuicutatbessb.supabase.co/storage/v1/object/public/Fotos/logo%20rachaldeira%203d.png"
                                 alt="Rachaldeira Logo"
                                 width={175}
                                 height={175}
