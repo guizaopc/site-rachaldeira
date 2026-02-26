@@ -41,12 +41,8 @@ export const metadata: Metadata = {
     },
     icons: {
         icon: '/logo.png',
-        shortcut: '/logo-new.png',
+        shortcut: '/logo.png',
         apple: '/logo.png',
-        other: {
-            rel: 'apple-touch-icon-precomposed',
-            url: '/logo.png',
-        },
     },
     manifest: '/manifest.json',
     appleWebApp: {

@@ -47,37 +47,26 @@ export default async function Home() {
 
             if (lastRacha && members.length > 0) {
                 const top1 = members.find(m => m.id === lastRacha.top1_id);
+                const top1_extra = members.find(m => m.id === lastRacha.top1_extra_id);
                 const top2 = members.find(m => m.id === lastRacha.top2_id);
+                const top2_extra = members.find(m => m.id === lastRacha.top2_extra_id);
                 const top3 = members.find(m => m.id === lastRacha.top3_id);
+                const top3_extra = members.find(m => m.id === lastRacha.top3_extra_id);
                 const sheriff = members.find(m => m.id === lastRacha.sheriff_id);
+                const sheriff_extra = members.find(m => m.id === lastRacha.sheriff_extra_id);
 
                 weeklyHighlights = {
                     rachaLabel: new Date(lastRacha.date_time).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
                     top1,
+                    top1_extra,
                     top2,
+                    top2_extra,
                     top3,
-                    sheriff
+                    top3_extra,
+                    sheriff,
+                    sheriff_extra
                 };
             }
-
-            // Buscar próximos rachas
-            const { data: rachasData } = await supabase
-                .from('rachas')
-                .select('*')
-                .gte('date_time', new Date().toISOString())
-                .neq('location', 'Sistema (Manual)')
-                .order('date_time', { ascending: true })
-                .limit(3);
-            rachas = rachasData || [];
-
-            // Buscar próximos campeonatos
-            const { data: campeonatosData } = await supabase
-                .from('championships')
-                .select('*')
-                .in('status', ['not_started', 'in_progress'])
-                .order('start_date', { ascending: true })
-                .limit(3);
-            campeonatos = campeonatosData || [];
         }
     } catch (error) {
         console.error("Error fetching homepage data:", error);
@@ -133,59 +122,67 @@ export default async function Home() {
                         </CardHeader>
                         <CardContent className="relative z-10 pt-4 pb-6 px-0 md:px-6">
                             {/* Mobile View - Cards Grid */}
-                            <div className="grid grid-cols-2 gap-3 md:hidden">
+                            <div className="grid grid-cols-2 gap-3 md:hidden px-4">
                                 {/* Top 1 */}
-                                <div className="bg-white/10 rounded-lg p-3 text-center border border-white/10">
+                                <div className="bg-white/10 rounded-lg p-3 text-center border border-white/10 flex flex-col justify-center min-h-[120px]">
                                     <div className="text-2xl mb-1">👑</div>
-                                    <div className="font-bold text-yellow-300 text-sm uppercase mb-1">Craque</div>
-                                    <div className="font-bold text-white text-lg leading-tight truncate">
+                                    <div className="font-bold text-yellow-300 text-[10px] uppercase mb-1">Craque</div>
+                                    <div className="font-bold text-white text-base leading-tight">
                                         {weeklyHighlights.top1?.name || '-'}
                                     </div>
-                                    {weeklyHighlights.top1?.position && (
-                                        <div className="text-[10px] text-yellow-200/70 uppercase mt-1">{weeklyHighlights.top1.position}</div>
+                                    {weeklyHighlights.top1_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top1_extra.name}
+                                        </div>
                                     )}
                                 </div>
 
                                 {/* Top 2 */}
-                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
                                     <div className="text-2xl mb-1">🥈</div>
-                                    <div className="font-bold text-gray-300 text-sm uppercase mb-1">Top 2</div>
-                                    <div className="font-bold text-gray-100 text-lg leading-tight truncate">
+                                    <div className="font-bold text-gray-300 text-[10px] uppercase mb-1">Top 2</div>
+                                    <div className="font-bold text-white text-base leading-tight">
                                         {weeklyHighlights.top2?.name || '-'}
                                     </div>
-                                    {weeklyHighlights.top2?.position && (
-                                        <div className="text-[10px] text-gray-400 uppercase mt-1">{weeklyHighlights.top2.position}</div>
+                                    {weeklyHighlights.top2_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top2_extra.name}
+                                        </div>
                                     )}
                                 </div>
 
                                 {/* Top 3 */}
-                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
                                     <div className="text-2xl mb-1">🥉</div>
-                                    <div className="font-bold text-orange-300 text-sm uppercase mb-1">Top 3</div>
-                                    <div className="font-bold text-orange-50 text-lg leading-tight truncate">
+                                    <div className="font-bold text-orange-300 text-[10px] uppercase mb-1">Top 3</div>
+                                    <div className="font-bold text-white text-base leading-tight">
                                         {weeklyHighlights.top3?.name || '-'}
                                     </div>
-                                    {weeklyHighlights.top3?.position && (
-                                        <div className="text-[10px] text-orange-200/50 uppercase mt-1">{weeklyHighlights.top3.position}</div>
+                                    {weeklyHighlights.top3_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top3_extra.name}
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Sheriff */}
-                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+                                {/* Xerife */}
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/5 flex flex-col justify-center min-h-[120px]">
                                     <div className="text-2xl mb-1">👮</div>
-                                    <div className="font-bold text-blue-300 text-sm uppercase mb-1">Xerife</div>
-                                    <div className="font-bold text-blue-50 text-lg leading-tight truncate">
+                                    <div className="font-bold text-blue-300 text-[10px] uppercase mb-1">Xerife</div>
+                                    <div className="font-bold text-white text-base leading-tight">
                                         {weeklyHighlights.sheriff?.name || '-'}
                                     </div>
-                                    {weeklyHighlights.sheriff?.position && (
-                                        <div className="text-[10px] text-blue-200/50 uppercase mt-1">{weeklyHighlights.sheriff.position}</div>
+                                    {weeklyHighlights.sheriff_extra && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.sheriff_extra.name}
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Desktop View - Table */}
-                            <div className="hidden md:block overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                                <Table className="min-w-[700px] sm:min-w-full">
+                            <div className="hidden md:block overflow-x-auto rounded-lg border border-white/10 mx-6">
+                                <Table>
                                     <TableHeader className="bg-blue-950/50">
                                         <TableRow className="hover:bg-transparent border-white/10">
                                             <TableHead className="text-center font-bold text-white h-12 text-lg w-1/4">
@@ -213,50 +210,106 @@ export default async function Home() {
                                     <TableBody>
                                         <TableRow className="hover:bg-white/5 border-none">
                                             <TableCell className="text-center py-6">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-2xl font-black text-white tracking-wide drop-shadow-md">
-                                                        {weeklyHighlights.top1?.name || '-'}
-                                                    </span>
-                                                    {weeklyHighlights.top1?.position && (
-                                                        <span className="text-xs text-yellow-200/70 mt-1 uppercase tracking-wider font-semibold">
-                                                            {weeklyHighlights.top1.position}
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-2xl font-black text-white tracking-wide drop-shadow-md">
+                                                            {weeklyHighlights.top1?.name || '-'}
                                                         </span>
+                                                        {weeklyHighlights.top1?.position && (
+                                                            <span className="text-xs text-yellow-200/70 mt-1 uppercase tracking-wider font-semibold">
+                                                                {weeklyHighlights.top1.position}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {weeklyHighlights.top1_extra && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-2xl font-black text-white tracking-wide drop-shadow-md">
+                                                                {weeklyHighlights.top1_extra.name}
+                                                            </span>
+                                                            {weeklyHighlights.top1_extra.position && (
+                                                                <span className="text-xs text-yellow-200/70 mt-1 uppercase tracking-wider font-semibold">
+                                                                    {weeklyHighlights.top1_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xl font-bold text-gray-100">
-                                                        {weeklyHighlights.top2?.name || '-'}
-                                                    </span>
-                                                    {weeklyHighlights.top2?.position && (
-                                                        <span className="text-xs text-blue-200/50 mt-1">
-                                                            {weeklyHighlights.top2.position}
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xl font-bold text-gray-100">
+                                                            {weeklyHighlights.top2?.name || '-'}
                                                         </span>
+                                                        {weeklyHighlights.top2?.position && (
+                                                            <span className="text-xs text-blue-200/50 mt-1">
+                                                                {weeklyHighlights.top2.position}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {weeklyHighlights.top2_extra && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-gray-100">
+                                                                {weeklyHighlights.top2_extra.name}
+                                                            </span>
+                                                            {weeklyHighlights.top2_extra.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top2_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xl font-bold text-orange-50">
-                                                        {weeklyHighlights.top3?.name || '-'}
-                                                    </span>
-                                                    {weeklyHighlights.top3?.position && (
-                                                        <span className="text-xs text-blue-200/50 mt-1">
-                                                            {weeklyHighlights.top3.position}
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xl font-bold text-orange-50">
+                                                            {weeklyHighlights.top3?.name || '-'}
                                                         </span>
+                                                        {weeklyHighlights.top3?.position && (
+                                                            <span className="text-xs text-blue-200/50 mt-1">
+                                                                {weeklyHighlights.top3.position}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {weeklyHighlights.top3_extra && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-orange-50">
+                                                                {weeklyHighlights.top3_extra.name}
+                                                            </span>
+                                                            {weeklyHighlights.top3_extra.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top3_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xl font-bold text-blue-50">
-                                                        {weeklyHighlights.sheriff?.name || '-'}
-                                                    </span>
-                                                    {weeklyHighlights.sheriff?.position && (
-                                                        <span className="text-xs text-blue-200/50 mt-1">
-                                                            {weeklyHighlights.sheriff.position}
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xl font-bold text-blue-50">
+                                                            {weeklyHighlights.sheriff?.name || '-'}
                                                         </span>
+                                                        {weeklyHighlights.sheriff?.position && (
+                                                            <span className="text-xs text-blue-200/50 mt-1">
+                                                                {weeklyHighlights.sheriff.position}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {weeklyHighlights.sheriff_extra && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-blue-50">
+                                                                {weeklyHighlights.sheriff_extra.name}
+                                                            </span>
+                                                            {weeklyHighlights.sheriff_extra.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.sheriff_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -264,7 +317,7 @@ export default async function Home() {
                                     </TableBody>
                                 </Table>
                             </div>
-                            <div className="mt-6 flex justify-center w-full px-4">
+                            <div className="mt-8 flex justify-center w-full px-6">
                                 <Link href="/rank" className="w-full max-w-4xl">
                                     <Button className="w-full !bg-[#af1c15] hover:!bg-[#8f1610] text-white font-bold h-12 text-lg shadow-b-4 border-b-4 border-[#8f1610] active:border-0 active:translate-y-1 transition-all">
                                         Ver Ranking Completo
