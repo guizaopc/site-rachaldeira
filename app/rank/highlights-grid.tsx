@@ -41,7 +41,6 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
         valueKey,
         icon: Icon,
         colorClass,
-        isFominha = false
     }: {
         title: string,
         items: any[],
@@ -49,7 +48,6 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
         valueKey: keyof Player,
         icon: any,
         colorClass: string,
-        isFominha?: boolean
     }) => (
         <div className={`flex flex-col min-w-0 flex-1 group ${isPrintMode ? 'gap-1' : ''}`}>
             <div className={`flex items-center gap-2 px-1 ${isPrintMode ? 'mb-1' : 'mb-4'}`}>
@@ -62,14 +60,7 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
             <div className={`bg-white rounded-xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden transition-all duration-300 ${isPrintMode ? '' : 'hover:shadow-2xl hover:-translate-y-1'}`}>
                 <div className={`bg-gray-50/50 ${isPrintMode ? 'px-2 py-1' : 'px-5 py-3'} border-b border-gray-100 flex text-[9px] font-bold uppercase text-gray-400 tracking-wider`}>
                     <span className="flex-[2]">Jogador</span>
-                    {isFominha ? (
-                        <>
-                            <span className="flex-[0.6] text-center">Jgs</span>
-                            <span className="flex-[0.6] text-right">%</span>
-                        </>
-                    ) : (
-                        <span className="flex-1 text-right">{valueLabel}</span>
-                    )}
+                    <span className="flex-1 text-right">{valueLabel}</span>
                 </div>
 
                 <div className={`${isPrintMode ? 'max-h-none' : 'max-h-[480px] overflow-y-auto'} scrollbar-thin`}>
@@ -91,20 +82,9 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
                                     </span>
                                 </div>
 
-                                {isFominha ? (
-                                    <>
-                                        <span className={`flex-[0.6] text-center font-bold text-gray-500 ${isPrintMode ? 'text-[10px]' : 'text-[13px]'}`}>
-                                            {player.participations}
-                                        </span>
-                                        <span className={`flex-[0.6] text-right font-black ${isPrintMode ? 'text-[10px]' : 'text-[13px]'} ${player.fominhaPct >= 80 ? 'text-green-500' : 'text-gray-400'}`}>
-                                            {player.fominhaPct}%
-                                        </span>
-                                    </>
-                                ) : (
-                                    <span className={`flex-1 text-right font-black ${isPrintMode ? 'text-[11px]' : 'text-[15px]'} ${idx === 0 ? 'text-gray-900' : 'text-gray-600'}`}>
-                                        {player[valueKey]}
-                                    </span>
-                                )}
+                                <span className={`flex-1 text-right font-black ${isPrintMode ? 'text-[11px]' : 'text-[15px]'} ${idx === 0 ? 'text-gray-900' : 'text-gray-600'}`}>
+                                    {player[valueKey]}
+                                </span>
                             </div>
                         ))
                     ) : (
@@ -186,7 +166,6 @@ const HighlightsGrid = ({ players }: HighlightsGridProps) => {
                     valueKey="participations"
                     icon={Flame}
                     colorClass="bg-orange-600 shadow-orange-200"
-                    isFominha
                 />
             </div>
 

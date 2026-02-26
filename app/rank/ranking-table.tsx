@@ -70,8 +70,8 @@ export default function RankingTable({ players }: RankingTableProps) {
                                 <TableHead className="text-center">
                                     <span title="Defesas difíceis">Paredão</span>
                                 </TableHead>
-                                <TableHead className="text-center">
-                                    <span title="% de Participação em Rachas Encerrados">Fominha</span>
+                                <TableHead className="text-center font-bold">
+                                    <span title="Participação em Rachas Encerrados">Fominha</span>
                                 </TableHead>
                             </TableRow>
                         </TableHeader>
@@ -109,9 +109,8 @@ export default function RankingTable({ players }: RankingTableProps) {
                                             <TableCell className="text-center text-red-700">
                                                 {player.saves}
                                             </TableCell>
-                                            <TableCell className="text-center text-purple-700">
-                                                {player.fominhaPct}%
-                                                <span className="text-xs text-gray-400 block">({player.participations} jogos)</span>
+                                            <TableCell className="text-center font-bold text-gray-700">
+                                                {player.participations}
                                             </TableCell>
                                         </TableRow>
                                     ))
