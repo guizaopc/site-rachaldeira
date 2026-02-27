@@ -32,7 +32,8 @@ export default function UserManagementClient({ profiles }: { profiles: any[] }) 
 
     const filteredProfiles = userProfiles.filter(p =>
         p.members?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.members?.email.toLowerCase().includes(searchTerm.toLowerCase())
+        p.members?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const handleRoleUpdate = async (profileId: string, newRole: 'admin' | 'director' | 'user') => {
@@ -124,26 +125,30 @@ export default function UserManagementClient({ profiles }: { profiles: any[] }) 
                         <TableBody>
                             {filteredProfiles.length > 0 ? (
                                 filteredProfiles.map((p) => (
-                                    <TableRow key={p.id}>
+                                    <TableRow key={p.id} className={!p.members ? "bg-red-50/50" : ""}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-3">
                                                 <Avatar>
                                                     <AvatarImage src={p.members?.photo_url || ''} />
-                                                    <AvatarFallback>{p.members?.name.charAt(0)}</AvatarFallback>
+                                                    <AvatarFallback>{p.members?.name?.charAt(0) || '?'}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                    <p className="text-sm font-medium leading-none">{p.members?.name}</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">ID: {p.members?.id.slice(0, 8)}...</p>
+                                                    <p className={`text-sm font-medium leading-none ${!p.members ? "text-red-600 font-bold" : ""}`}>
+                                                        {p.members?.name || "SEM REGISTRO DE MEMBRO"}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {p.members ? `ID: ${p.members.id.slice(0, 8)}...` : `Auth ID: ${p.id.slice(0, 8)}...`}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell>{p.members?.email}</TableCell>
-                                        <TableCell>{p.members?.position}</TableCell>
+                                        <TableCell>{p.members?.email || "N/A"}</TableCell>
+                                        <TableCell>{p.members?.position || "-"}</TableCell>
                                         <TableCell>
                                             <Select
                                                 value={String(p.members?.level || 1)}
-                                                onValueChange={(val) => handleLevelUpdate(p.members.id, parseInt(val))}
-                                                disabled={loading === `${p.members.id}-level`}
+                                                onValueChange={(val) => p.members && handleLevelUpdate(p.members.id, parseInt(val))}
+                                                disabled={!p.members || loading === `${p.members?.id}-level`}
                                             >
                                                 <SelectTrigger className="w-[70px]">
                                                     <SelectValue />

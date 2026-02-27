@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Minus, Save, Play, X, Trophy, Shield, Medal, RotateCcw } from 'lucide-react';
+import { Plus, Minus, Save, Play, X, Trophy, Shield, Medal, RotateCcw, AlertTriangle } from 'lucide-react';
 
 export default function ScoutsPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = use(params);
@@ -29,6 +29,8 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         sheriff_id: '',
         sheriff_extra_id: '',
     });
+
+    const [initialScouts, setInitialScouts] = useState<any[]>([]);
 
     useEffect(() => {
         loadData();
@@ -72,18 +74,17 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
 
         setAttendance(attendanceData || []);
 
-        // Buscar scouts existentes
+        // Buscar scouts existentes para ter os IDs e valores atuais (para soma)
         const { data: scoutsData } = await supabase
             .from('racha_scouts')
             .select('*')
             .eq('racha_id', rachaId);
 
-        // Criar scouts vazios para quem não tem
         const scoutsMap = new Map(scoutsData?.map(s => [s.member_id, s]) || []);
-        const initialScouts = attendanceData?.map(att => {
-            const existing = scoutsMap.get(att.member_id);
-            return existing || {
-                id: null,
+
+        // A UI deve começar ZERADA conforme solicitado pelo usuário
+        const sessionScouts = attendanceData?.map(att => {
+            return {
                 racha_id: rachaId,
                 member_id: att.member_id,
                 goals: 0,
@@ -93,14 +94,15 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
             };
         }) || [];
 
-        setScouts(initialScouts);
+        setInitialScouts(scoutsData || []); // Guardar o que já existia no banco
+        setScouts(sessionScouts);
         setLoading(false);
     };
 
     const updateScout = (memberId: string, field: string, delta: number) => {
         setScouts(prev => prev.map(s => {
             if (s.member_id === memberId) {
-                const newValue = Math.max(0, (s[field] || 0) + delta);
+                const newValue = (s[field] || 0) + delta;
                 return { ...s, [field]: newValue };
             }
             return s;
@@ -117,34 +119,42 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         const supabase = createClient();
 
         try {
-            for (const scout of scouts) {
-                if (scout.id) {
-                    // Update existing
+            for (const sessionScout of scouts) {
+                // Pular se não houver alteração nesta sessão
+                if (sessionScout.goals === 0 && sessionScout.assists === 0 && sessionScout.difficult_saves === 0 && sessionScout.warnings === 0) {
+                    continue;
+                }
+
+                // Encontrar o registro original no banco
+                const original = initialScouts.find(s => s.member_id === sessionScout.member_id);
+
+                if (original) {
+                    // Update: somar o que foi digitado agora ao que já tinha
                     await supabase
                         .from('racha_scouts')
                         .update({
-                            goals: scout.goals,
-                            assists: scout.assists,
-                            difficult_saves: scout.difficult_saves,
-                            warnings: scout.warnings,
+                            goals: (original.goals || 0) + sessionScout.goals,
+                            assists: (original.assists || 0) + sessionScout.assists,
+                            difficult_saves: (original.difficult_saves || 0) + sessionScout.difficult_saves,
+                            warnings: (original.warnings || 0) + sessionScout.warnings,
                         })
-                        .eq('id', scout.id);
+                        .eq('id', original.id);
                 } else {
                     // Insert new
                     await supabase
                         .from('racha_scouts')
                         .insert({
-                            racha_id: scout.racha_id,
-                            member_id: scout.member_id,
-                            goals: scout.goals,
-                            assists: scout.assists,
-                            difficult_saves: scout.difficult_saves,
-                            warnings: scout.warnings,
+                            racha_id: sessionScout.racha_id,
+                            member_id: sessionScout.member_id,
+                            goals: sessionScout.goals,
+                            assists: sessionScout.assists,
+                            difficult_saves: sessionScout.difficult_saves,
+                            warnings: sessionScout.warnings,
                         });
                 }
             }
 
-            alert('Scouts e destaques salvos com sucesso!');
+            alert('Scouts processados e somados aos existentes!');
             loadData();
         } catch (error: any) {
             alert('Erro ao salvar: ' + error.message);
@@ -187,28 +197,35 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         const supabase = createClient();
 
         try {
-            // Save all scouts
-            for (const scout of scouts) {
-                if (scout.id) {
+            // Save all scouts using additive logic
+            for (const sessionScout of scouts) {
+                // Pular se não houver alteração nesta sessão
+                if (sessionScout.goals === 0 && sessionScout.assists === 0 && sessionScout.difficult_saves === 0 && sessionScout.warnings === 0) {
+                    continue;
+                }
+
+                const original = initialScouts.find(s => s.member_id === sessionScout.member_id);
+
+                if (original) {
                     await supabase
                         .from('racha_scouts')
                         .update({
-                            goals: scout.goals,
-                            assists: scout.assists,
-                            difficult_saves: scout.difficult_saves,
-                            warnings: scout.warnings,
+                            goals: (original.goals || 0) + sessionScout.goals,
+                            assists: (original.assists || 0) + sessionScout.assists,
+                            difficult_saves: (original.difficult_saves || 0) + sessionScout.difficult_saves,
+                            warnings: (original.warnings || 0) + sessionScout.warnings,
                         })
-                        .eq('id', scout.id);
+                        .eq('id', original.id);
                 } else {
                     await supabase
                         .from('racha_scouts')
                         .insert({
                             racha_id: rachaId,
-                            member_id: scout.member_id,
-                            goals: scout.goals,
-                            assists: scout.assists,
-                            difficult_saves: scout.difficult_saves,
-                            warnings: scout.warnings,
+                            member_id: sessionScout.member_id,
+                            goals: sessionScout.goals,
+                            assists: sessionScout.assists,
+                            difficult_saves: sessionScout.difficult_saves,
+                            warnings: sessionScout.warnings,
                         });
                 }
             }
@@ -363,11 +380,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                     </div>
                 </div>
 
-                {racha.status === 'closed' && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex justify-between items-center">
-                        <p className="text-blue-800">
-                            ℹ️ Este racha foi finalizado. Os scouts numéricos estão travados, mas você ainda pode atualizar os <b>Destaques</b> abaixo.
-                        </p>
+                {racha.status !== 'closed' && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                        <AlertTriangle className="text-yellow-600 mt-0.5" size={20} />
+                        <div>
+                            <p className="text-yellow-800 font-bold">Modo de Entrada Incremental</p>
+                            <p className="text-yellow-700 text-sm">
+                                Os scouts abaixo começam em <b>0</b> nesta sessão. Ao salvar, os valores serão <b>SOMADOS</b> aos que já existem no banco de dados.
+                                <br />Exemplo: Se o jogador já tem 2 gols e você colocar +1 aqui, o total dele passará a ser 3.
+                            </p>
+                        </div>
                     </div>
                 )}
 

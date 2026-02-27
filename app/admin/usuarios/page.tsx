@@ -46,8 +46,8 @@ export default async function UserManagementPage() {
         return <div>Erro ao carregar usuários.</div>;
     }
 
-    // Filter out profiles that might not have a linked member (though they should)
-    const validProfiles = profiles.filter(p => p.members);
+    // Do not filter out profiles without members, so we can see who is "broken"
+    const validProfiles = profiles;
 
     return (
         <div className="space-y-6">

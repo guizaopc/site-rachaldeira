@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Save, Search, Users, Loader2, Plus, Minus, AlertCircle, Edit3, Check } from 'lucide-react';
+import { Save, Search, Users, Loader2, Plus, Minus, AlertCircle, Edit3, Check, X } from 'lucide-react';
 
 export default function EdicaoScoutsPage() {
     const [members, setMembers] = useState<any[]>([]);
@@ -15,6 +15,7 @@ export default function EdicaoScoutsPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [adjustmentRachaId, setAdjustmentRachaId] = useState<string | null>(null);
+    const [deltas, setDeltas] = useState<{ [key: string]: any }>({});
 
     useEffect(() => {
         loadData();
@@ -134,18 +135,16 @@ export default function EdicaoScoutsPage() {
         }
     };
 
-    const updateValue = async (memberId: string, field: string, delta: number) => {
-        if (saving || !adjustmentRachaId) return;
+    const handleSaveDeltas = async () => {
+        if (saving || !adjustmentRachaId || Object.keys(deltas).length === 0) {
+            setIsEditing(false);
+            return;
+        }
+
         setSaving(true);
         const supabase = createClient();
 
         try {
-            const member = members.find(m => m.id === memberId);
-            if (!member) return;
-
-            const manualField = `manual_${field}`;
-            const totalField = `total_${field}`;
-
             const dbFieldMap: { [key: string]: string } = {
                 'goals': 'goals',
                 'assists': 'assists',
@@ -156,51 +155,58 @@ export default function EdicaoScoutsPage() {
                 'top3': 'top3_count',
                 'sheriff': 'sheriff_count'
             };
-            const dbField = dbFieldMap[field] || field;
 
-            const currentManualValue = member[manualField] || 0;
-            const newManualValue = Math.max(0, currentManualValue + delta);
+            for (const memberId in deltas) {
+                const member = members.find(m => m.id === memberId);
+                const memberDeltas = deltas[memberId];
 
-            if (member.manual_id) {
-                const { error } = await supabase
-                    .from('racha_scouts')
-                    .update({ [dbField]: newManualValue })
-                    .eq('id', member.manual_id);
-                if (error) throw error;
-            } else {
-                const { data: newScout, error } = await supabase
-                    .from('racha_scouts')
-                    .insert({
-                        racha_id: adjustmentRachaId,
-                        member_id: memberId,
-                        [dbField]: newManualValue
-                    })
-                    .select()
-                    .single();
+                const updatePayload: any = {};
+                for (const field in memberDeltas) {
+                    const dbField = dbFieldMap[field];
+                    const manualField = `manual_${field}`;
+                    const currentManualValue = member[manualField] || 0;
+                    updatePayload[dbField] = Math.max(0, currentManualValue + memberDeltas[field]);
+                }
 
-                if (error) throw error;
-                if (newScout) {
-                    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, manual_id: newScout.id } : m));
+                if (member.manual_id) {
+                    await supabase
+                        .from('racha_scouts')
+                        .update(updatePayload)
+                        .eq('id', member.manual_id);
+                } else {
+                    await supabase
+                        .from('racha_scouts')
+                        .insert({
+                            racha_id: adjustmentRachaId,
+                            member_id: memberId,
+                            ...updatePayload
+                        });
                 }
             }
 
-            setMembers(prev => prev.map(m => {
-                if (m.id === memberId) {
-                    return {
-                        ...m,
-                        [manualField]: newManualValue,
-                        [totalField]: (m[totalField] || 0) + delta
-                    };
-                }
-                return m;
-            }));
-
+            alert('Ajustes salvos com sucesso!');
+            setDeltas({});
+            setIsEditing(false);
+            loadData();
         } catch (error: any) {
-            console.error('Erro ao atualizar:', error);
-            alert('Falha ao salvar alteração: ' + (error.message || 'Verifique sua conexão.'));
+            alert('Erro ao salvar ajustes: ' + error.message);
         } finally {
             setSaving(false);
         }
+    };
+
+    const updateDelta = (memberId: string, field: string, delta: number) => {
+        setDeltas(prev => {
+            const memberDeltas = prev[memberId] || {};
+            const currentValue = memberDeltas[field] || 0;
+            return {
+                ...prev,
+                [memberId]: {
+                    ...memberDeltas,
+                    [field]: currentValue + delta
+                }
+            };
+        });
     };
 
     const filteredMembers = members.filter(m =>
@@ -231,17 +237,33 @@ export default function EdicaoScoutsPage() {
                             Salvando...
                         </div>
                     )}
-                    <Button
-                        onClick={() => setIsEditing(!isEditing)}
-                        variant={isEditing ? "primary" : "outline"}
-                        className={isEditing ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold" : "border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"}
-                    >
-                        {isEditing ? (
-                            <><Check size={18} className="mr-2" /> Concluir Edição</>
-                        ) : (
-                            <><Edit3 size={18} className="mr-2" /> Ativar Edição</>
-                        )}
-                    </Button>
+                    {!isEditing ? (
+                        <Button
+                            onClick={() => setIsEditing(true)}
+                            variant="outline"
+                            className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
+                        >
+                            <Edit3 size={18} className="mr-2" /> Ativar Ajustes Manuais
+                        </Button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => { setIsEditing(false); setDeltas({}); }}
+                                variant="ghost"
+                                className="text-slate-500 font-bold"
+                                disabled={saving}
+                            >
+                                <X size={18} className="mr-2" /> Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleSaveDeltas}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                disabled={saving}
+                            >
+                                <Save size={18} className="mr-2" /> Salvar Alterações
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -285,14 +307,14 @@ export default function EdicaoScoutsPage() {
                                             <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{member.position || 'N/I'}</div>
                                         </TableCell>
 
-                                        <TableCell><ScoutCell member={member} field="presence" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="goals" color="red" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="assists" color="emerald" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="saves" color="purple" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top1" color="yellow" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top2" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top3" color="orange" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="sheriff" color="blue" isEditing={isEditing} saving={saving} onUpdate={updateValue} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.presence || 0} field="presence" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.goals || 0} field="goals" color="red" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.assists || 0} field="assists" color="emerald" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.saves || 0} field="saves" color="purple" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top1 || 0} field="top1" color="yellow" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top2 || 0} field="top2" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top3 || 0} field="top3" color="orange" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.sheriff || 0} field="sheriff" color="blue" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -307,7 +329,8 @@ export default function EdicaoScoutsPage() {
                         <AlertCircle className="text-white" size={20} />
                     </div>
                     <p className="text-white text-sm font-bold">
-                        Modo de Edição Ativado! Os botões + e - alteram os scouts totais permanentemente através de ajustes manuais.
+                        Modo de Ajuste Ativado! Os números mostrados são o que você está ADICIONANDO agora.
+                        Os scouts atuais estão salvos - use os botões para definir o quanto quer somar ou subtrair.
                     </p>
                 </div>
             )}
@@ -315,7 +338,7 @@ export default function EdicaoScoutsPage() {
     );
 }
 
-function ScoutCell({ member, field, color, isEditing, saving, onUpdate }: any) {
+function ScoutCell({ member, delta, field, color, isEditing, saving, onUpdate }: any) {
     const totalField = `total_${field}`;
     const colorScheme: any = {
         red: { text: 'text-red-600', btn: 'hover:bg-red-50 hover:text-red-600', active: 'hover:bg-red-600 hover:text-white' },
@@ -329,29 +352,32 @@ function ScoutCell({ member, field, color, isEditing, saving, onUpdate }: any) {
     const s = colorScheme[color];
 
     return (
-        <div className="flex items-center justify-center gap-1">
-            {isEditing && (
-                <button
-                    onClick={() => onUpdate(member.id, field, -1)}
-                    className={`w-5 h-5 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 ${s.btn} transition-all`}
-                    disabled={saving || (member[totalField] || 0) <= 0}
-                >
-                    <Minus size={10} />
-                </button>
-            )}
-            <div className="flex flex-col items-center min-w-[24px]">
+        <div className="flex flex-col items-center justify-center gap-1">
+            {!isEditing ? (
                 <span className={`text-base font-black ${(member[totalField] || 0) > 0 ? s.text : 'text-slate-200'}`}>
                     {member[totalField] || 0}
                 </span>
-            </div>
-            {isEditing && (
-                <button
-                    onClick={() => onUpdate(member.id, field, 1)}
-                    className={`w-5 h-5 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 ${s.active} transition-all shadow-sm`}
-                    disabled={saving}
-                >
-                    <Plus size={10} />
-                </button>
+            ) : (
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => onUpdate(member.id, field, -1)}
+                        className={`w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all shadow-sm`}
+                        disabled={saving}
+                    >
+                        <Minus size={12} />
+                    </button>
+                    <div className={`min-w-[32px] h-8 flex items-center justify-center rounded-lg font-black text-sm border-2 ${delta !== 0 ? 'bg-white border-blue-500 text-blue-600 animate-in zoom-in-50' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                        {delta > 0 && '+'}
+                        {delta}
+                    </div>
+                    <button
+                        onClick={() => onUpdate(member.id, field, 1)}
+                        className={`w-6 h-6 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm`}
+                        disabled={saving}
+                    >
+                        <Plus size={12} />
+                    </button>
+                </div>
             )}
         </div>
     );
