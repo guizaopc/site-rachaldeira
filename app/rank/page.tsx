@@ -132,36 +132,22 @@ export default async function RankingPage() {
         .from('match_player_stats')
         .select('*');
 
-    // Calcular rankings para cada membro (APENAS RACHAS ENCERRADOS + CAMPEONATOS)
+    // Obter o ID do racha de ajustes
+    const adjustmentRacha = allRachas?.find(r => r.location === 'Sistema (Manual)' || r.name === 'Ajustes Globais Manuais');
+
+    // Calcular rankings baseados APENAS na Planilha Geral (Ajustes Manuais)
     const rankings = members?.map(member => {
-        const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
-        const memberChampStats = championshipStats?.filter(s => s.member_id === member.id) || [];
-        const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
+        const manualScout = rachaScouts?.find(s => s.member_id === member.id && s.racha_id === adjustmentRacha?.id);
 
-        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.goals || 0), 0);
+        const goals = manualScout?.goals || 0;
+        const assists = manualScout?.assists || 0;
+        const saves = manualScout?.difficult_saves || 0;
+        const participations = (manualScout as any)?.attendance_count || 0;
 
-        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.assists || 0), 0);
-
-        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
-
-        const participations = memberAttendance.length +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
-
-        // Calcular Pontos (Highlights) baseados nas marcações manuais + Ajustes Manuais do painel admin
-        const top1Count = (allRachas?.filter((r: any) => r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top1_count || 0), 0);
-
-        const top2Count = (allRachas?.filter((r: any) => r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top2_count || 0), 0);
-
-        const top3Count = (allRachas?.filter((r: any) => r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top3_count || 0), 0);
-
-        const sheriffCount = (allRachas?.filter((r: any) => r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).sheriff_count || 0), 0);
+        const top1Count = (manualScout as any)?.top1_count || 0;
+        const top2Count = (manualScout as any)?.top2_count || 0;
+        const top3Count = (manualScout as any)?.top3_count || 0;
+        const sheriffCount = (manualScout as any)?.sheriff_count || 0;
 
         const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
 
@@ -174,7 +160,7 @@ export default async function RankingPage() {
             assists,
             saves,
             participations,
-            fominhaPct: allRachas && allRachas.length > 0 ? Math.round((memberAttendance.length / allRachas.length) * 100) : 0,
+            fominhaPct: 0, // Não faz mais sentido com tudo manual
             top1Count,
             top2Count,
             top3Count,
