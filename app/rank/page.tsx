@@ -72,11 +72,12 @@ export default async function RankingPage() {
         .eq('status', 'in')
         .in('racha_id', allRachaIds);
 
-    // Buscar último racha fechado para destaques semanais
+    // Buscar último racha fechado REAL (ignorar Sistema/Manual) para destaques semanais
     const { data: lastRacha } = await supabase
         .from('rachas')
         .select('*')
         .eq('status', 'closed')
+        .neq('location', 'Sistema (Manual)')
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();

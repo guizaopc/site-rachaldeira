@@ -2,12 +2,13 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { CalendarDays, MapPin, Clock, Users, Trophy, Shield, Medal, Activity } from 'lucide-react';
+import { CalendarDays, MapPin, Clock, Users, Trophy, Shield, Medal, Activity, ChevronLeft, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import RachaAttendance from '@/components/racha-attendance';
 import StartRachaButton from '@/components/start-racha-button';
 import OpenRachaButton from '@/components/open-racha-button';
 import ShareRachaButton from '@/components/share-racha-button';
+import { PrintModeToggle } from '@/components/print-mode-toggle';
 
 export default async function RachaDetalhesPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = await params;
@@ -60,12 +61,14 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
     `)
         .eq('racha_id', rachaId);
 
-    const confirmedIn = attendance?.filter(a => a.status === 'in') || [];
-    const confirmedOut = attendance?.filter(a => a.status === 'out') || [];
+    const confirmedIn = (attendance?.filter(a => a.status === 'in') || [])
+        .sort((a, b) => (a.members?.name || '').localeCompare(b.members?.name || ''));
+    const confirmedOut = (attendance?.filter(a => a.status === 'out') || [])
+        .sort((a, b) => (a.members?.name || '').localeCompare(b.members?.name || ''));
 
-    // Buscar scouts (só se racha fechado)
+    // Buscar scouts (se racha em andamento ou fechado)
     let scouts: any[] = [];
-    if (racha.status === 'closed') {
+    if (racha.status === 'closed' || racha.status === 'in_progress') {
         const { data: scoutsData } = await supabase
             .from('racha_scouts')
             .select(`
@@ -76,14 +79,41 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
         )
       `)
             .eq('racha_id', rachaId)
-            .order('goals', { ascending: false });
-
-        scouts = scoutsData || [];
+        // Filtrar apenas quem está confirmado "IN" no dia e ordenar alfabeticamente
+        const attendeeIds = new Set(confirmedIn.map(a => a.member_id));
+        scouts = (scoutsData || [])
+            .filter(s => attendeeIds.has(s.member_id))
+            .sort((a, b) => (a.members?.name || '').localeCompare(b.members?.name || ''));
     }
 
     const getMemberName = (id: string) => {
         const att = attendance?.find(a => a.member_id === id);
-        return att?.members?.name || 'Desconhecido';
+        if (att?.members?.name) return att.members.name;
+
+        const scout = scouts?.find(s => s.member_id === id);
+        if (scout?.members?.name) return scout.members.name;
+
+        return 'Desconhecido';
+    };
+
+    const HighlightCard = ({ id, extraId, title, emoji, label, colorClass, bgColorClass, borderColorClass, textColorClass }: any) => {
+        if (!id && !extraId) return null;
+
+        return (
+            <div className={`bg-white p-4 rounded-lg shadow-sm border ${borderColorClass} flex flex-col items-center text-center relative overflow-hidden h-full justify-center`}>
+                <div className={`absolute top-0 right-0 ${bgColorClass} ${textColorClass} text-[10px] px-2 py-0.5 rounded-bl font-bold uppercase`}>{title}</div>
+                <div className="text-3xl mb-2">{emoji}</div>
+                <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(id)}</div>
+                {extraId && (
+                    <>
+                        <div className="text-[10px] text-gray-400 font-bold mt-1">&</div>
+                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(extraId)}</div>
+                    </>
+                )}
+                <div className={`text-xs ${colorClass} font-semibold mt-1`}>{label}</div>
+                <div className="text-xs text-green-600 font-bold mt-1">+1 Ponto</div>
+            </div>
+        );
     };
 
     // Find current user status
@@ -98,74 +128,77 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
     return (
         <main className="min-h-screen bg-gray-50">
             <div className="max-w-5xl mx-auto px-4 py-8">
-                <div className="flex justify-between items-start mb-2">
-                    <h1 className="text-4xl font-bold text-gray-900">
-                        ⚽ Detalhes do Racha
-                    </h1>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2 back-button-container no-print">
+                            <Link href="/rachas">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="p-0 hover:bg-transparent text-blue-600 font-bold"
+                                >
+                                    <ChevronLeft size={20} /> Voltar para Rachas
+                                </Button>
+                            </Link>
+                        </div>
+                        <h1 className="text-4xl font-extrabold text-gray-900 flex items-center gap-3">
+                            {racha.location === 'Sistema (Manual)' ? 'Ajustes Globais Manuais' : racha.name || racha.location}
+                        </h1>
+                        <p className="text-lg text-gray-600 mt-2">
+                            {racha.location === 'Sistema (Manual)'
+                                ? 'Estatísticas de ajuste manual para o Ranking geral.'
+                                : 'Acompanhe quem está confirmado para este racha.'}
+                        </p>
+                    </div>
+
                     {isAdmin && (
-                        <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto admin-actions-container no-print">
                             {(racha.status === 'open' || racha.status === 'locked') && (
                                 <StartRachaButton rachaId={rachaId} />
                             )}
-                            {racha.status !== 'open' && (
-                                <OpenRachaButton rachaId={rachaId} />
-                            )}
-                            <Link href={`/admin/rachas/${rachaId}/scouts`}>
-                                <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
-                                    <Activity size={16} />
-                                    Ir para os Scouts Ao vivo
+                            <Link href={`/admin/rachas/${rachaId}/scouts`} className="w-full md:w-auto">
+                                <Button
+                                    className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto font-bold"
+                                >
+                                    Gerenciar Scouts / Destaques
                                 </Button>
                             </Link>
                         </div>
                     )}
                 </div>
-                <p className="text-gray-600 mb-8">{racha.location}</p>
 
-                {/* Info do Racha */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Informações</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <CalendarDays className="text-green-600" size={20} />
-                            <span className="font-semibold">Data:</span>
-                            <span>{new Date(racha.date_time).toLocaleDateString('pt-BR', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                timeZone: 'America/Sao_Paulo'
-                            })}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <Clock className="text-green-600" size={20} />
-                            <span className="font-semibold">Horário:</span>
-                            <span>{new Date(racha.date_time).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                timeZone: 'America/Sao_Paulo'
-                            })}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <MapPin className="text-green-600" size={20} />
-                            <span className="font-semibold">Local:</span>
-                            <span>{racha.location}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="font-semibold text-gray-700">Status:</span>
-                            <span className={`px-3 py-1 text-sm rounded ${racha.status === 'open' ? 'bg-green-100 text-green-800' :
-                                racha.status === 'locked' ? 'bg-yellow-100 text-yellow-800' :
-                                    racha.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                                        'bg-gray-100 text-gray-800'
-                                }`}>
-                                {racha.status === 'open' ? '✅ Aberto' :
-                                    racha.status === 'locked' ? '🔒 Travado' :
-                                        racha.status === 'in_progress' ? '⚡ Em Andamento' : '✔️ Fechado'}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                    <Card className="md:col-span-2">
+                        <CardHeader>
+                            <CardTitle>Informações do Racha</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center gap-3 text-gray-700">
+                                <Calendar className="text-blue-600" size={20} />
+                                <span className="font-semibold">Data:</span>
+                                <span>{new Date(racha.date_time).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-gray-700">
+                                <MapPin className="text-green-600" size={20} />
+                                <span className="font-semibold">Local:</span>
+                                <span>{racha.location}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="font-semibold text-gray-700">Status:</span>
+                                <span className={`px-3 py-1 text-sm rounded ${racha.status === 'open' ? 'bg-green-100 text-green-800' :
+                                    racha.status === 'locked' ? 'bg-yellow-100 text-yellow-800' :
+                                        racha.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    {racha.status === 'open' ? '✅ Aberto' :
+                                        racha.status === 'locked' ? '🔒 Travado' :
+                                            racha.status === 'in_progress' ? '⚡ Em Andamento' : '✔️ Fechado'}
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 {/* Destaques */}
                 {(racha.top1_id || racha.top2_id || racha.top3_id || racha.sheriff_id) && (
@@ -177,49 +210,57 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {racha.top1_id && (
-                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-yellow-200 flex flex-col items-center text-center relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded-bl">TOP 1</div>
-                                        <div className="text-3xl mb-2">🥇</div>
-                                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(racha.top1_id)}</div>
-                                        <div className="text-xs text-yellow-600 font-semibold mt-1">Melhor do Dia</div>
-                                        <div className="text-xs text-green-600 font-bold mt-1">+1 Ponto</div>
-                                    </div>
-                                )}
-                                {racha.top2_id && (
-                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center text-center relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-gray-100 text-gray-800 text-[10px] px-2 py-0.5 rounded-bl">TOP 2</div>
-                                        <div className="text-3xl mb-2">🥈</div>
-                                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(racha.top2_id)}</div>
-                                        <div className="text-xs text-gray-500 font-semibold mt-1">Vice-Craque</div>
-                                        <div className="text-xs text-green-600 font-bold mt-1">+1 Ponto</div>
-                                    </div>
-                                )}
-                                {racha.top3_id && (
-                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-orange-200 flex flex-col items-center text-center relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-bl">TOP 3</div>
-                                        <div className="text-3xl mb-2">🥉</div>
-                                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(racha.top3_id)}</div>
-                                        <div className="text-xs text-orange-700 font-semibold mt-1">Bronze</div>
-                                        <div className="text-xs text-green-600 font-bold mt-1">+1 Ponto</div>
-                                    </div>
-                                )}
-                                {racha.sheriff_id && (
-                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200 flex flex-col items-center text-center relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-bl">XERIFE</div>
-                                        <div className="text-3xl mb-2">👮</div>
-                                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(racha.sheriff_id)}</div>
-                                        <div className="text-xs text-blue-600 font-semibold mt-1">Melhor Defensor</div>
-                                        <div className="text-xs text-green-600 font-bold mt-1">+1 Ponto</div>
-                                    </div>
-                                )}
+                                <HighlightCard
+                                    id={racha.top1_id}
+                                    extraId={racha.top1_extra_id}
+                                    title="TOP 1"
+                                    emoji="🥇"
+                                    label="Melhor do Dia"
+                                    colorClass="text-yellow-600"
+                                    bgColorClass="bg-yellow-100"
+                                    borderColorClass="border-yellow-200"
+                                    textColorClass="text-yellow-800"
+                                />
+                                <HighlightCard
+                                    id={racha.top2_id}
+                                    extraId={racha.top2_extra_id}
+                                    title="TOP 2"
+                                    emoji="🥈"
+                                    label="Vice-Craque"
+                                    colorClass="text-gray-500"
+                                    bgColorClass="bg-gray-100"
+                                    borderColorClass="border-gray-200"
+                                    textColorClass="text-gray-800"
+                                />
+                                <HighlightCard
+                                    id={racha.top3_id}
+                                    extraId={racha.top3_extra_id}
+                                    title="TOP 3"
+                                    emoji="🥉"
+                                    label="Bronze"
+                                    colorClass="text-orange-700"
+                                    bgColorClass="bg-orange-100"
+                                    borderColorClass="border-orange-200"
+                                    textColorClass="text-orange-800"
+                                />
+                                <HighlightCard
+                                    id={racha.sheriff_id}
+                                    extraId={racha.sheriff_extra_id}
+                                    title="XERIFE"
+                                    emoji="👮"
+                                    label="Melhor Defensor"
+                                    colorClass="text-blue-600"
+                                    bgColorClass="bg-blue-100"
+                                    borderColorClass="border-blue-200"
+                                    textColorClass="text-blue-800"
+                                />
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
                 {/* Confirmação de Presença (Botões) */}
-                <Card className="mb-6">
+                <Card className="mb-6 attendance-buttons-card no-print">
                     <CardHeader>
                         <CardTitle>Confirmação de Presença</CardTitle>
                     </CardHeader>
@@ -301,16 +342,19 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                     </Card>
                 </div>
 
-                {/* Scouts (só se fechado e com dados) */}
-                {racha.status === 'closed' && scouts.length > 0 && (
-                    <Card className="mb-6">
+                {/* Scouts (só se stats compatíveis e NÃO for o de Ajustes) */}
+                {(racha.status === 'closed' || racha.status === 'in_progress') && racha.location !== 'Sistema (Manual)' && scouts.length > 0 && (
+                    <Card className="mb-6 print-scouts-card">
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Activity className="text-blue-600" /> Scouts da Partida
+                            <CardTitle className="flex items-center justify-between gap-2 flex-center-title">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="text-blue-600" /> Scouts da Partida
+                                </div>
+                                <PrintModeToggle />
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto print:hidden no-print-section">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -344,6 +388,40 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                                         ))}
                                     </TableBody>
                                 </Table>
+                            </div>
+
+                            {/* Versão Exclusiva para Print (WhatsApp Mode) */}
+                            <div className="print-scouts-grid">
+                                {scouts.map((scout) => (
+                                    <div key={scout.id} className="scout-print-item">
+                                        <div className="scout-member-info">
+                                            <span className="scout-member-name">{scout.members?.name}</span>
+                                            {scout.members?.position && (
+                                                <div className="text-[10px] text-gray-400 font-bold uppercase">{scout.members.position}</div>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            {scout.goals > 0 && (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="scout-stats-badge bg-green-50 text-green-700">{scout.goals}</span>
+                                                    <span className="text-[8px] font-black uppercase text-green-600">Gols</span>
+                                                </div>
+                                            )}
+                                            {scout.assists > 0 && (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="scout-stats-badge bg-blue-50 text-blue-700">{scout.assists}</span>
+                                                    <span className="text-[8px] font-black uppercase text-blue-600">Ass</span>
+                                                </div>
+                                            )}
+                                            {scout.difficult_saves > 0 && (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="scout-stats-badge bg-orange-50 text-orange-700">{scout.difficult_saves}</span>
+                                                    <span className="text-[8px] font-black uppercase text-orange-600">Def</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>

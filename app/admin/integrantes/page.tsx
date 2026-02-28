@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Trash2, Plus, Users, AlertCircle } from 'lucide-react';
+import { Pencil, Trash2, Plus, Users, AlertCircle, Search } from 'lucide-react';
 
 export default function AdminIntegrantesPage() {
     const router = useRouter();
@@ -18,6 +18,7 @@ export default function AdminIntegrantesPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showInactive, setShowInactive] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [editingMember, setEditingMember] = useState<any>(null);
     const [formData, setFormData] = useState({
         name: '',
@@ -231,7 +232,13 @@ export default function AdminIntegrantesPage() {
         );
     }
 
-    const filteredMembers = members.filter(m => showInactive || m.is_active !== false);
+    const filteredMembers = members
+        .filter(m => showInactive || m.is_active !== false)
+        .filter(m =>
+            m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.position?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
     return (
         <main className="min-h-screen bg-gray-50">
@@ -282,9 +289,20 @@ export default function AdminIntegrantesPage() {
                 </div>
 
                 <Card className="border-none shadow-xl overflow-hidden rounded-2xl bg-white">
-                    <CardHeader className="bg-gray-50/50 border-b border-gray-100 flex flex-row items-center justify-between py-6">
-                        <div className="flex items-center gap-4">
+                    <CardHeader className="bg-gray-50/50 border-b border-gray-100 flex flex-col md:flex-row items-center justify-between py-6 gap-4">
+                        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                             <CardTitle className="text-lg font-bold">Lista de Integrantes</CardTitle>
+
+                            <div className="relative w-full md:w-64">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                                <Input
+                                    placeholder="Buscar integrante..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 h-9 bg-white border-gray-200"
+                                />
+                            </div>
+
                             <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-full border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors">
                                 <input
                                     type="checkbox"

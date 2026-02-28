@@ -23,21 +23,31 @@ BEGIN
     RAISE EXCEPTION 'Papel inválido. Use: admin, director ou user.';
   END IF;
 
-  -- 4. Find the auth.users ID associated with the member within profiles
-  -- We assume one-to-one mapping or similar logic where profiles.member_id points to members.id
+  -- 4. Find the auth.users ID associated with the member
+  -- First try via profiles.member_id
   SELECT id INTO target_user_id FROM public.profiles WHERE member_id = target_member_id;
 
+  -- If not found, try to find an auth user with the same email as the member (auto-healing)
   IF target_user_id IS NULL THEN
-    RAISE EXCEPTION 'Este integrante ainda não possui um usuário vinculado (Profile não encontrado). Crie um usuário para ele primeiro.';
+     SELECT id INTO target_user_id FROM auth.users WHERE email = (SELECT email FROM public.members WHERE id = target_member_id);
+     
+     -- If found an auth user, ensure they have a profile linked to this member
+     IF target_user_id IS NOT NULL THEN
+        -- Link existing auth user to this member
+        INSERT INTO public.profiles (id, role, member_id)
+        VALUES (target_user_id, new_role::user_role, target_member_id)
+        ON CONFLICT (id) DO UPDATE 
+        SET member_id = target_member_id, role = EXCLUDED.role;
+     END IF;
   END IF;
 
-  -- 5. Update the role
+  IF target_user_id IS NULL THEN
+    RAISE EXCEPTION 'Este integrante ainda não possui um usuário (email não encontrado no sistema de autenticação). Crie um usuário para ele primeiro ou peça para ele se cadastrar com o email %', (SELECT email FROM public.members WHERE id = target_member_id);
+  END IF;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+  -- 5. Update the role (ensuring it is set correctly)
   UPDATE public.profiles
-  SET role = new_role::public.app_role -- Cast to enum if needed, or TEXT if stored as text. Based on schema it is likely an enum or text. 
-                                       -- Schema says 'role' is ENUM. Usually 'public.app_role' or similar. 
-                                       -- Let's try casting to the type implicitly or explicit if we knew the name.
-                                       -- Looking at SCHEMA.md, it just says role ENUM.
-                                       -- Safe bet: just pass string, Postgres usually auto-casts if it matches an enum value.
+  SET role = new_role::user_role
   WHERE id = target_user_id;
 
   RETURN jsonb_build_object(

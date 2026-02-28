@@ -86,7 +86,9 @@ export default function RegistrarResultadoPage({ params }: { params: Promise<{ c
         processTeam(matchData.team_a);
         processTeam(matchData.team_b);
 
-        setPlayerStats(initialStats);
+        const sortedStats = [...initialStats].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        setPlayerStats(sortedStats);
         setLoading(false);
     };
 

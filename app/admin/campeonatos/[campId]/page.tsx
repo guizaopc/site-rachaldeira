@@ -86,7 +86,8 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                     members (id, name, position)
                 )
             `)
-            .eq('championship_id', campId);
+            .eq('championship_id', campId)
+            .order('name');
 
         setTeams(teamsData || []);
 

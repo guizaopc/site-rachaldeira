@@ -94,7 +94,7 @@ export default function StatsTable({ stats, year }: StatsTableProps) {
                         <TableBody>
                             {filteredStats.length > 0 ? (
                                 filteredStats
-                                    .sort((a, b) => b.goals - a.goals)
+                                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                                     .map(player => (
                                         <TableRow key={player.id}>
                                             <TableCell className="font-medium">

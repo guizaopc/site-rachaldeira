@@ -36,6 +36,7 @@ export default function AdminRachasPage() {
         const { data } = await supabase
             .from('rachas')
             .select('*')
+            .neq('location', 'Sistema (Manual)')
             .order('date_time', { ascending: false });
 
         setRachas(data || []);
@@ -185,12 +186,12 @@ export default function AdminRachasPage() {
                                         <TableCell>{racha.is_next ? '🔥 Sim' : '-'}</TableCell>
                                         <TableCell className="text-right">
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="sm"
                                                 onClick={() => router.push(`/admin/rachas/${racha.id}/scouts`)}
-                                                disabled={racha.status === 'closed'}
+                                                className="border-blue-200 text-blue-600 hover:bg-blue-50 font-bold"
                                             >
-                                                Scouts
+                                                Gerenciar Scouts de Hoje
                                             </Button>
                                             <Button
                                                 variant="ghost"
