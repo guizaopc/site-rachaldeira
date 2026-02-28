@@ -24,12 +24,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
     const [highlights, setHighlights] = useState({
         top1_id: '',
         top1_extra_id: '',
+        top1_extra2_id: '',
         top2_id: '',
         top2_extra_id: '',
+        top2_extra2_id: '',
         top3_id: '',
         top3_extra_id: '',
+        top3_extra2_id: '',
         sheriff_id: '',
         sheriff_extra_id: '',
+        sheriff_extra2_id: '',
     });
 
     useEffect(() => {
@@ -61,12 +65,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
         setHighlights({
             top1_id: rachaData?.top1_id || 'none',
             top1_extra_id: rachaData?.top1_extra_id || 'none',
+            top1_extra2_id: rachaData?.top1_extra2_id || 'none',
             top2_id: rachaData?.top2_id || 'none',
             top2_extra_id: rachaData?.top2_extra_id || 'none',
+            top2_extra2_id: rachaData?.top2_extra2_id || 'none',
             top3_id: rachaData?.top3_id || 'none',
             top3_extra_id: rachaData?.top3_extra_id || 'none',
+            top3_extra2_id: rachaData?.top3_extra2_id || 'none',
             sheriff_id: rachaData?.sheriff_id || 'none',
             sheriff_extra_id: rachaData?.sheriff_extra_id || 'none',
+            sheriff_extra2_id: rachaData?.sheriff_extra2_id || 'none',
         });
 
         // Buscar todos os membros (para a lista de busca/avulsos)
@@ -175,12 +183,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                 .update({
                     top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
                     top1_extra_id: highlights.top1_extra_id && highlights.top1_extra_id !== 'none' ? highlights.top1_extra_id : null,
+                    top1_extra2_id: highlights.top1_extra2_id && highlights.top1_extra2_id !== 'none' ? highlights.top1_extra2_id : null,
                     top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
                     top2_extra_id: highlights.top2_extra_id && highlights.top2_extra_id !== 'none' ? highlights.top2_extra_id : null,
+                    top2_extra2_id: highlights.top2_extra2_id && highlights.top2_extra2_id !== 'none' ? highlights.top2_extra2_id : null,
                     top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
                     top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
+                    top3_extra2_id: highlights.top3_extra2_id && highlights.top3_extra2_id !== 'none' ? highlights.top3_extra2_id : null,
                     sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
                     sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
+                    sheriff_extra2_id: highlights.sheriff_extra2_id && highlights.sheriff_extra2_id !== 'none' ? highlights.sheriff_extra2_id : null,
                 })
                 .eq('id', rachaId);
 
@@ -221,12 +233,16 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                 .update({
                     top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
                     top1_extra_id: highlights.top1_extra_id && highlights.top1_extra_id !== 'none' ? highlights.top1_extra_id : null,
+                    top1_extra2_id: highlights.top1_extra2_id && highlights.top1_extra2_id !== 'none' ? highlights.top1_extra2_id : null,
                     top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
                     top2_extra_id: highlights.top2_extra_id && highlights.top2_extra_id !== 'none' ? highlights.top2_extra_id : null,
+                    top2_extra2_id: highlights.top2_extra2_id && highlights.top2_extra2_id !== 'none' ? highlights.top2_extra2_id : null,
                     top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
                     top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
+                    top3_extra2_id: highlights.top3_extra2_id && highlights.top3_extra2_id !== 'none' ? highlights.top3_extra2_id : null,
                     sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
                     sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
+                    sheriff_extra2_id: highlights.sheriff_extra2_id && highlights.sheriff_extra2_id !== 'none' ? highlights.sheriff_extra2_id : null,
                     status: 'closed'
                 })
                 .eq('id', rachaId);
@@ -566,6 +582,21 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 1 Extra 2</label>
+                                    <Select
+                                        value={highlights.top1_extra2_id}
+                                        onValueChange={(value) => setHighlights({ ...highlights, top1_extra2_id: value })}
+                                    >
+                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 1..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Nenhum</SelectItem>
+                                            {members.map((m) => (
+                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -591,6 +622,21 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                         onValueChange={(value) => setHighlights({ ...highlights, top2_extra_id: value })}
                                     >
                                         <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 2..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Nenhum</SelectItem>
+                                            {members.map((m) => (
+                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 2 Extra 2</label>
+                                    <Select
+                                        value={highlights.top2_extra2_id}
+                                        onValueChange={(value) => setHighlights({ ...highlights, top2_extra2_id: value })}
+                                    >
+                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 2..." /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">Nenhum</SelectItem>
                                             {members.map((m) => (
@@ -632,6 +678,21 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 italic">+ Top 3 Extra 2</label>
+                                    <Select
+                                        value={highlights.top3_extra2_id}
+                                        onValueChange={(value) => setHighlights({ ...highlights, top3_extra2_id: value })}
+                                    >
+                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 3..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Nenhum</SelectItem>
+                                            {members.map((m) => (
+                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -657,6 +718,21 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                                         onValueChange={(value) => setHighlights({ ...highlights, sheriff_extra_id: value })}
                                     >
                                         <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Xerife..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Nenhum</SelectItem>
+                                            {members.map((m) => (
+                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 italic">+ Xerife Extra 2</label>
+                                    <Select
+                                        value={highlights.sheriff_extra2_id}
+                                        onValueChange={(value) => setHighlights({ ...highlights, sheriff_extra2_id: value })}
+                                    >
+                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Xerife..." /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">Nenhum</SelectItem>
                                             {members.map((m) => (

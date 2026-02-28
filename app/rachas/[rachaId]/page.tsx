@@ -96,8 +96,8 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
         return 'Desconhecido';
     };
 
-    const HighlightCard = ({ id, extraId, title, emoji, label, colorClass, bgColorClass, borderColorClass, textColorClass }: any) => {
-        if (!id && !extraId) return null;
+    const HighlightCard = ({ id, extraId, extra2Id, title, emoji, label, colorClass, bgColorClass, borderColorClass, textColorClass }: any) => {
+        if (!id && !extraId && !extra2Id) return null;
 
         return (
             <div className={`bg-white p-4 rounded-lg shadow-sm border ${borderColorClass} flex flex-col items-center text-center relative overflow-hidden h-full justify-center`}>
@@ -108,6 +108,12 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                     <>
                         <div className="text-[10px] text-gray-400 font-bold mt-1">&</div>
                         <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(extraId)}</div>
+                    </>
+                )}
+                {extra2Id && (
+                    <>
+                        <div className="text-[10px] text-gray-400 font-bold mt-1">&</div>
+                        <div className="font-bold text-gray-900 line-clamp-1">{getMemberName(extra2Id)}</div>
                     </>
                 )}
                 <div className={`text-xs ${colorClass} font-semibold mt-1`}>{label}</div>
@@ -213,6 +219,7 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                                 <HighlightCard
                                     id={racha.top1_id}
                                     extraId={racha.top1_extra_id}
+                                    extra2Id={racha.top1_extra2_id}
                                     title="TOP 1"
                                     emoji="🥇"
                                     label="Melhor do Dia"
@@ -224,6 +231,7 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                                 <HighlightCard
                                     id={racha.top2_id}
                                     extraId={racha.top2_extra_id}
+                                    extra2Id={racha.top2_extra2_id}
                                     title="TOP 2"
                                     emoji="🥈"
                                     label="Vice-Craque"
@@ -235,6 +243,7 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                                 <HighlightCard
                                     id={racha.top3_id}
                                     extraId={racha.top3_extra_id}
+                                    extra2Id={racha.top3_extra2_id}
                                     title="TOP 3"
                                     emoji="🥉"
                                     label="Bronze"
@@ -246,6 +255,7 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
                                 <HighlightCard
                                     id={racha.sheriff_id}
                                     extraId={racha.sheriff_extra_id}
+                                    extra2Id={racha.sheriff_extra2_id}
                                     title="XERIFE"
                                     emoji="👮"
                                     label="Melhor Defensor"

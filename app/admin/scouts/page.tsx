@@ -58,7 +58,7 @@ export default function EdicaoScoutsPage() {
             // 3. Buscar Dados de TODO o sistema
             const { data: allRachas } = await supabase
                 .from('rachas')
-                .select('id, location, top1_id, top1_extra_id, top2_id, top2_extra_id, top3_id, top3_extra_id, sheriff_id, sheriff_extra_id');
+                .select('id, location, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id');
 
             const allRachaIds = allRachas?.map(r => r.id) || [];
 
@@ -93,13 +93,13 @@ export default function EdicaoScoutsPage() {
                 const total_presence = mAttendance.length + (manual?.attendance_count || 0);
 
                 // Destaques (Soma das indicações nos rachas + Ajustes Manuais na racha_scouts)
-                const total_top1 = (allRachas?.filter(r => r.top1_id === m.id || r.top1_extra_id === m.id).length || 0) +
+                const total_top1 = (allRachas?.filter(r => r.top1_id === m.id || r.top1_extra_id === m.id || r.top1_extra2_id === m.id).length || 0) +
                     rScouts.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0);
-                const total_top2 = (allRachas?.filter(r => r.top2_id === m.id || r.top2_extra_id === m.id).length || 0) +
+                const total_top2 = (allRachas?.filter(r => r.top2_id === m.id || r.top2_extra_id === m.id || r.top2_extra2_id === m.id).length || 0) +
                     rScouts.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0);
-                const total_top3 = (allRachas?.filter(r => r.top3_id === m.id || r.top3_extra_id === m.id).length || 0) +
+                const total_top3 = (allRachas?.filter(r => r.top3_id === m.id || r.top3_extra_id === m.id || r.top3_extra2_id === m.id).length || 0) +
                     rScouts.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0);
-                const total_sheriff = (allRachas?.filter(r => r.sheriff_id === m.id || r.sheriff_extra_id === m.id).length || 0) +
+                const total_sheriff = (allRachas?.filter(r => r.sheriff_id === m.id || r.sheriff_extra_id === m.id || r.sheriff_extra2_id === m.id).length || 0) +
                     rScouts.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0);
 
                 return {
