@@ -67,7 +67,36 @@ export function PrintModeToggle() {
 
                 @media (max-width: 600px) {
                     body.print-mode-on .print-scouts-grid {
-                        grid-template-columns: 1fr !important;
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 8px !important;
+                        padding: 10px !important;
+                    }
+
+                    body.print-mode-on .scout-print-item {
+                        padding: 8px 10px !important;
+                        gap: 4px !important;
+                    }
+
+                    body.print-mode-on .scout-member-name {
+                        font-size: 12px !important;
+                        max-width: 70px !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                        white-space: nowrap !important;
+                    }
+
+                    body.print-mode-on .scout-stats-badge {
+                        padding: 2px 6px !important;
+                        font-size: 11px !important;
+                    }
+
+                    body.print-mode-on .print-scouts-card {
+                        padding: 1.5rem 1rem !important;
+                    }
+
+                    body.print-mode-on .flex-center-title {
+                        font-size: 1.25rem !important;
+                        margin-bottom: 1rem !important;
                     }
                 }
 

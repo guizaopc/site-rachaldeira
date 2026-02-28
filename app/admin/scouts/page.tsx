@@ -3,19 +3,16 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Save, Search, Users, Loader2, Plus, Minus, AlertCircle, Edit3, Check, X } from 'lucide-react';
+import { Search, Users, Loader2, Plus, Minus, CheckCircle, RefreshCcw } from 'lucide-react';
 
 export default function EdicaoScoutsPage() {
     const [members, setMembers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    const [savingId, setSavingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [adjustmentRachaId, setAdjustmentRachaId] = useState<string | null>(null);
-    const [deltas, setDeltas] = useState<{ [key: string]: any }>({});
 
     useEffect(() => {
         loadData();
@@ -27,14 +24,14 @@ export default function EdicaoScoutsPage() {
 
         try {
             // 1. Buscar ou Criar o Racha de Ajustes Globais
-            let { data: adjRacha, error: fetchError } = await supabase
+            let { data: adjRacha } = await supabase
                 .from('rachas')
                 .select('id')
                 .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)')
                 .maybeSingle();
 
             if (!adjRacha) {
-                const { data: newRacha, error: createError } = await supabase
+                const { data: newRacha } = await supabase
                     .from('rachas')
                     .insert({
                         name: 'Ajustes Globais Manuais',
@@ -135,17 +132,18 @@ export default function EdicaoScoutsPage() {
         }
     };
 
-    const handleSaveDeltas = async () => {
-        if (saving || !adjustmentRachaId || Object.keys(deltas).length === 0) {
-            setIsEditing(false);
-            return;
-        }
+    const updateScoutValue = async (memberId: string, field: string, delta: number) => {
+        if (!adjustmentRachaId) return;
 
-        setSaving(true);
+        setSavingId(`${memberId}-${field}`);
         const supabase = createClient();
 
         try {
-            const dbFieldMap: { [key: string]: string } = {
+            const member = members.find(m => m.id === memberId);
+            const manualField = `manual_${field}`;
+            const totalField = `total_${field}`;
+
+            const dbFieldMap: any = {
                 'goals': 'goals',
                 'assists': 'assists',
                 'saves': 'difficult_saves',
@@ -156,57 +154,37 @@ export default function EdicaoScoutsPage() {
                 'sheriff': 'sheriff_count'
             };
 
-            for (const memberId in deltas) {
-                const member = members.find(m => m.id === memberId);
-                const memberDeltas = deltas[memberId];
+            const dbField = dbFieldMap[field];
+            const newManualValue = Math.max(0, (member[manualField] || 0) + delta);
 
-                const updatePayload: any = {};
-                for (const field in memberDeltas) {
-                    const dbField = dbFieldMap[field];
-                    const manualField = `manual_${field}`;
-                    const currentManualValue = member[manualField] || 0;
-                    updatePayload[dbField] = Math.max(0, currentManualValue + memberDeltas[field]);
+            // 1. Atualizar Supabase (Salvamento automático)
+            const { error } = await supabase
+                .from('racha_scouts')
+                .upsert({
+                    racha_id: adjustmentRachaId,
+                    member_id: memberId,
+                    [dbField]: newManualValue
+                }, { onConflict: 'racha_id,member_id' });
+
+            if (error) throw error;
+
+            // 2. Atualizar estado local para feedback instantâneo
+            setMembers(prev => prev.map(m => {
+                if (m.id === memberId) {
+                    return {
+                        ...m,
+                        [manualField]: newManualValue,
+                        [totalField]: Math.max(0, (m[totalField] || 0) + delta)
+                    };
                 }
+                return m;
+            }));
 
-                if (member.manual_id) {
-                    await supabase
-                        .from('racha_scouts')
-                        .update(updatePayload)
-                        .eq('id', member.manual_id);
-                } else {
-                    await supabase
-                        .from('racha_scouts')
-                        .insert({
-                            racha_id: adjustmentRachaId,
-                            member_id: memberId,
-                            ...updatePayload
-                        });
-                }
-            }
-
-            alert('Ajustes salvos com sucesso!');
-            setDeltas({});
-            setIsEditing(false);
-            loadData();
         } catch (error: any) {
-            alert('Erro ao salvar ajustes: ' + error.message);
+            console.error('Erro ao salvar ajuste:', error);
         } finally {
-            setSaving(false);
+            setSavingId(null);
         }
-    };
-
-    const updateDelta = (memberId: string, field: string, delta: number) => {
-        setDeltas(prev => {
-            const memberDeltas = prev[memberId] || {};
-            const currentValue = memberDeltas[field] || 0;
-            return {
-                ...prev,
-                [memberId]: {
-                    ...memberDeltas,
-                    [field]: currentValue + delta
-                }
-            };
-        });
     };
 
     const filteredMembers = members.filter(m =>
@@ -226,45 +204,12 @@ export default function EdicaoScoutsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Estatísticas Totais</h1>
-                    <p className="text-slate-500 font-medium">Consolidado Geral (Ao Vivo + Campeonatos)</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planilha de Ajustes</h1>
+                    <p className="text-slate-500 font-medium">Os scouts são atualizados automaticamente ao clicar nos botões.</p>
                 </div>
-
-                <div className="flex items-center gap-3">
-                    {saving && (
-                        <div className="flex items-center gap-2 text-blue-600 text-sm font-bold animate-pulse px-3 py-1 bg-blue-50 rounded-full">
-                            <Loader2 size={14} className="animate-spin" />
-                            Salvando...
-                        </div>
-                    )}
-                    {!isEditing ? (
-                        <Button
-                            onClick={() => setIsEditing(true)}
-                            variant="outline"
-                            className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
-                        >
-                            <Edit3 size={18} className="mr-2" /> Ativar Ajustes Manuais
-                        </Button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={() => { setIsEditing(false); setDeltas({}); }}
-                                variant="ghost"
-                                className="text-slate-500 font-bold"
-                                disabled={saving}
-                            >
-                                <X size={18} className="mr-2" /> Cancelar
-                            </Button>
-                            <Button
-                                onClick={handleSaveDeltas}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                disabled={saving}
-                            >
-                                <Save size={18} className="mr-2" /> Salvar Alterações
-                            </Button>
-                        </div>
-                    )}
-                </div>
+                <Button onClick={loadData} variant="outline" className="gap-2">
+                    <RefreshCcw size={16} /> Atualizar Tudo
+                </Button>
             </div>
 
             <Card className="border-none shadow-xl bg-white overflow-hidden rounded-2xl">
@@ -307,14 +252,14 @@ export default function EdicaoScoutsPage() {
                                             <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{member.position || 'N/I'}</div>
                                         </TableCell>
 
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.presence || 0} field="presence" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.goals || 0} field="goals" color="red" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.assists || 0} field="assists" color="emerald" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.saves || 0} field="saves" color="purple" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top1 || 0} field="top1" color="yellow" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top2 || 0} field="top2" color="slate" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.top3 || 0} field="top3" color="orange" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
-                                        <TableCell><ScoutCell member={member} delta={deltas[member.id]?.sheriff || 0} field="sheriff" color="blue" isEditing={isEditing} saving={saving} onUpdate={updateDelta} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="presence" color="slate" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-presence`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="goals" color="red" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-goals`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="assists" color="emerald" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-assists`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="saves" color="purple" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-saves`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top1" color="yellow" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top1`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top2" color="slate" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top2`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top3" color="orange" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top3`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="sheriff" color="blue" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-sheriff`)} /></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -323,62 +268,54 @@ export default function EdicaoScoutsPage() {
                 </CardContent>
             </Card>
 
-            {isEditing && (
-                <div className="bg-blue-600 p-4 rounded-xl shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                        <AlertCircle className="text-white" size={20} />
-                    </div>
-                    <p className="text-white text-sm font-bold">
-                        Modo de Ajuste Ativado! Os números mostrados são o que você está ADICIONANDO agora.
-                        Os scouts atuais estão salvos - use os botões para definir o quanto quer somar ou subtrair.
-                    </p>
+            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-3">
+                <div className="bg-emerald-600 p-2 rounded-lg">
+                    <CheckCircle className="text-white" size={20} />
                 </div>
-            )}
+                <p className="text-emerald-800 text-sm font-bold">
+                    Salvamento Automático Ativo! Cada alteração é salva instantaneamente no banco de dados.
+                </p>
+            </div>
         </div>
     );
 }
 
-function ScoutCell({ member, delta, field, color, isEditing, saving, onUpdate }: any) {
+function ScoutCell({ member, field, color, onUpdate, isSaving }: any) {
     const totalField = `total_${field}`;
     const colorScheme: any = {
-        red: { text: 'text-red-600', btn: 'hover:bg-red-50 hover:text-red-600', active: 'hover:bg-red-600 hover:text-white' },
-        emerald: { text: 'text-emerald-600', btn: 'hover:bg-emerald-50 hover:text-emerald-600', active: 'hover:bg-emerald-600 hover:text-white' },
-        purple: { text: 'text-purple-600', btn: 'hover:bg-purple-50 hover:text-purple-600', active: 'hover:bg-purple-600 hover:text-white' },
-        yellow: { text: 'text-yellow-600', btn: 'hover:bg-yellow-50 hover:text-yellow-600', active: 'hover:bg-yellow-600 hover:text-white' },
-        slate: { text: 'text-slate-600', btn: 'hover:bg-slate-50 hover:text-slate-600', active: 'hover:bg-slate-600 hover:text-white' },
-        orange: { text: 'text-orange-600', btn: 'hover:bg-orange-50 hover:text-orange-600', active: 'hover:bg-orange-600 hover:text-white' },
-        blue: { text: 'text-blue-600', btn: 'hover:bg-blue-50 hover:text-blue-600', active: 'hover:bg-blue-600 hover:text-white' },
+        red: { text: 'text-red-600', btn: 'bg-red-50 text-red-600 hover:bg-red-100' },
+        emerald: { text: 'text-emerald-600', btn: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
+        purple: { text: 'text-purple-600', btn: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
+        yellow: { text: 'text-yellow-600', btn: 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' },
+        slate: { text: 'text-slate-600', btn: 'bg-slate-50 text-slate-600 hover:bg-slate-100' },
+        orange: { text: 'text-orange-600', btn: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
+        blue: { text: 'text-blue-600', btn: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
     };
     const s = colorScheme[color];
 
     return (
         <div className="flex flex-col items-center justify-center gap-1">
-            {!isEditing ? (
-                <span className={`text-base font-black ${(member[totalField] || 0) > 0 ? s.text : 'text-slate-200'}`}>
-                    {member[totalField] || 0}
-                </span>
-            ) : (
-                <div className="flex items-center gap-1.5">
-                    <button
-                        onClick={() => onUpdate(member.id, field, -1)}
-                        className={`w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all shadow-sm`}
-                        disabled={saving}
-                    >
-                        <Minus size={12} />
-                    </button>
-                    <div className={`min-w-[32px] h-8 flex items-center justify-center rounded-lg font-black text-sm border-2 ${delta !== 0 ? 'bg-white border-blue-500 text-blue-600 animate-in zoom-in-50' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                        {delta > 0 && '+'}
-                        {delta}
-                    </div>
-                    <button
-                        onClick={() => onUpdate(member.id, field, 1)}
-                        className={`w-6 h-6 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm`}
-                        disabled={saving}
-                    >
-                        <Plus size={12} />
-                    </button>
+            <div className="flex items-center gap-1.5">
+                <button
+                    onClick={() => onUpdate(member.id, field, -1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm disabled:opacity-50"
+                    disabled={isSaving}
+                >
+                    <Minus size={14} />
+                </button>
+
+                <div className={`min-w-[36px] px-1 h-8 flex items-center justify-center rounded-lg font-black text-sm border-2 bg-white ${isSaving ? 'border-dashed border-blue-400 text-blue-400' : 'border-slate-100 text-slate-800'}`}>
+                    {isSaving ? '...' : member[totalField] || 0}
                 </div>
-            )}
+
+                <button
+                    onClick={() => onUpdate(member.id, field, 1)}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50`}
+                    disabled={isSaving}
+                >
+                    <Plus size={14} />
+                </button>
+            </div>
         </div>
     );
 }
