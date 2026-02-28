@@ -48,23 +48,31 @@ export default async function Home() {
             if (lastRacha && members.length > 0) {
                 const top1 = members.find(m => m.id === lastRacha.top1_id);
                 const top1_extra = members.find(m => m.id === lastRacha.top1_extra_id);
+                const top1_extra2 = members.find(m => m.id === lastRacha.top1_extra2_id);
                 const top2 = members.find(m => m.id === lastRacha.top2_id);
                 const top2_extra = members.find(m => m.id === lastRacha.top2_extra_id);
+                const top2_extra2 = members.find(m => m.id === lastRacha.top2_extra2_id);
                 const top3 = members.find(m => m.id === lastRacha.top3_id);
                 const top3_extra = members.find(m => m.id === lastRacha.top3_extra_id);
+                const top3_extra2 = members.find(m => m.id === lastRacha.top3_extra2_id);
                 const sheriff = members.find(m => m.id === lastRacha.sheriff_id);
                 const sheriff_extra = members.find(m => m.id === lastRacha.sheriff_extra_id);
+                const sheriff_extra2 = members.find(m => m.id === lastRacha.sheriff_extra2_id);
 
                 weeklyHighlights = {
                     rachaLabel: new Date(lastRacha.date_time).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
                     top1,
                     top1_extra,
+                    top1_extra2,
                     top2,
                     top2_extra,
+                    top2_extra2,
                     top3,
                     top3_extra,
+                    top3_extra2,
                     sheriff,
-                    sheriff_extra
+                    sheriff_extra,
+                    sheriff_extra2
                 };
             }
         }
@@ -135,6 +143,11 @@ export default async function Home() {
                                             {weeklyHighlights.top1_extra.name}
                                         </div>
                                     )}
+                                    {weeklyHighlights.top1_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top1_extra2.name}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Top 2 */}
@@ -147,6 +160,11 @@ export default async function Home() {
                                     {weeklyHighlights.top2_extra && (
                                         <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
                                             {weeklyHighlights.top2_extra.name}
+                                        </div>
+                                    )}
+                                    {weeklyHighlights.top2_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top2_extra2.name}
                                         </div>
                                     )}
                                 </div>
@@ -163,6 +181,11 @@ export default async function Home() {
                                             {weeklyHighlights.top3_extra.name}
                                         </div>
                                     )}
+                                    {weeklyHighlights.top3_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top3_extra2.name}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Xerife */}
@@ -175,6 +198,11 @@ export default async function Home() {
                                     {weeklyHighlights.sheriff_extra && (
                                         <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
                                             {weeklyHighlights.sheriff_extra.name}
+                                        </div>
+                                    )}
+                                    {weeklyHighlights.sheriff_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.sheriff_extra2.name}
                                         </div>
                                     )}
                                 </div>
@@ -233,6 +261,18 @@ export default async function Home() {
                                                             )}
                                                         </div>
                                                     )}
+                                                    {weeklyHighlights.top1_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-2xl font-black text-white tracking-wide drop-shadow-md">
+                                                                {weeklyHighlights.top1_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top1_extra2.position && (
+                                                                <span className="text-xs text-yellow-200/70 mt-1 uppercase tracking-wider font-semibold">
+                                                                    {weeklyHighlights.top1_extra2.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
@@ -255,6 +295,18 @@ export default async function Home() {
                                                             {weeklyHighlights.top2_extra.position && (
                                                                 <span className="text-xs text-blue-200/50 mt-1">
                                                                     {weeklyHighlights.top2_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {weeklyHighlights.top2_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-gray-100">
+                                                                {weeklyHighlights.top2_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top2_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top2_extra2.position}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -285,6 +337,18 @@ export default async function Home() {
                                                             )}
                                                         </div>
                                                     )}
+                                                    {weeklyHighlights.top3_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-orange-50">
+                                                                {weeklyHighlights.top3_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top3_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top3_extra2.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
@@ -307,6 +371,18 @@ export default async function Home() {
                                                             {weeklyHighlights.sheriff_extra.position && (
                                                                 <span className="text-xs text-blue-200/50 mt-1">
                                                                     {weeklyHighlights.sheriff_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {weeklyHighlights.sheriff_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-blue-50">
+                                                                {weeklyHighlights.sheriff_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.sheriff_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.sheriff_extra2.position}
                                                                 </span>
                                                             )}
                                                         </div>
