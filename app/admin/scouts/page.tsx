@@ -58,9 +58,10 @@ export default function EdicaoScoutsPage() {
             // 3. Buscar Dados de TODO o sistema
             const { data: allRachas } = await supabase
                 .from('rachas')
-                .select('id, location, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id');
+                .select('id, status, location, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id');
 
             const allRachaIds = allRachas?.map(r => r.id) || [];
+            const closedRachaIds = allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').map(r => r.id) || [];
 
             const { data: allRachaScouts } = await supabase
                 .from('racha_scouts')
@@ -75,7 +76,7 @@ export default function EdicaoScoutsPage() {
                 .from('racha_attendance')
                 .select('member_id, racha_id')
                 .eq('status', 'in')
-                .in('racha_id', allRachaIds.filter(id => id !== adjRacha?.id));
+                .in('racha_id', closedRachaIds);
 
             // 4. Consolidar
             const consolidated = membersData?.map(m => {

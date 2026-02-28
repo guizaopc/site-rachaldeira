@@ -133,12 +133,20 @@ export default function UserProfilePage() {
             .select('goals, assists, difficult_saves, attendance_count')
             .eq('member_id', memberId);
 
-        // 2. Buscar presenças reais
+        // 2. Buscar presenças reais em rachas FECHADOS
         const { count: realParticipations } = await supabase
             .from('racha_attendance')
-            .select('*', { count: 'exact', head: true })
+            .select(`
+                id,
+                rachas!inner (
+                    status,
+                    location
+                )
+            `, { count: 'exact', head: true })
             .eq('member_id', memberId)
-            .eq('status', 'in');
+            .eq('status', 'in')
+            .eq('rachas.status', 'closed')
+            .neq('rachas.location', 'Sistema (Manual)');
 
         let totalGoals = 0;
         let totalAssists = 0;

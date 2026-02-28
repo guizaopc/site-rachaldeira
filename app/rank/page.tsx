@@ -139,16 +139,15 @@ export default async function RankingPage() {
     const rankings = members?.map(member => {
         const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
         const memberChampStats = championshipStats?.filter(s => s.member_id === member.id) || [];
-        const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
-        const manualScout = rachaScouts?.find(s => s.member_id === member.id && s.racha_id === adjustmentRacha?.id);
-
         const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
-
         const assists = memberRachaScouts.reduce((sum, sumS) => sum + (sumS.assists || 0), 0);
-
         const saves = memberRachaScouts.reduce((sum, sumS) => sum + (sumS.difficult_saves || 0), 0);
 
-        const participations = memberAttendance.length +
+        // Participações: Apenas Rachas ENCERRADOS (reais) + Ajustes Manuais
+        const closedRachaIds = allRachas?.filter(r => r.status === 'closed' && r.id !== adjustmentRacha?.id).map(r => r.id) || [];
+        const memberAttendanceCount = attendance?.filter(a => a.member_id === member.id && closedRachaIds.includes(a.racha_id)).length || 0;
+
+        const participations = memberAttendanceCount +
             memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).attendance_count || 0), 0);
 
         // Calcular Pontos (Highlights) baseados nas marcações manuais + Ajustes Manuais do painel admin
@@ -176,7 +175,9 @@ export default async function RankingPage() {
             assists,
             saves,
             participations,
-            fominhaPct: (allRachas?.length || 0) > 0 ? Math.round((memberAttendance.length / (allRachas?.length || 1)) * 100) : 0,
+            fominhaPct: (allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').length || 0) > 0
+                ? Math.round((memberAttendanceCount / (allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').length || 1)) * 100)
+                : 0,
             top1Count,
             top2Count,
             top3Count,

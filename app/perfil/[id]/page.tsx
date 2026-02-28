@@ -42,12 +42,21 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
         .select('*')
         .eq('member_id', id);
 
-    // 5. Buscar Presenças (Jogos Reais)
+    // 5. Buscar Presenças (Jogos Reais em Rachas Fechados)
     const { data: attendance } = await supabase
         .from('racha_attendance')
-        .select('id')
+        .select(`
+            id,
+            racha_id,
+            rachas!inner (
+                status,
+                location
+            )
+        `)
         .eq('member_id', id)
-        .eq('status', 'in');
+        .eq('status', 'in')
+        .eq('rachas.status', 'closed')
+        .neq('rachas.location', 'Sistema (Manual)');
 
     // 6. Buscar Destaques (Top 1, 2, 3 e Xerife) - Marcados na tabela rachas
     const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').or(`top1_id.eq.${id},top1_extra_id.eq.${id},top1_extra2_id.eq.${id}`);
