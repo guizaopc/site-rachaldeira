@@ -90,23 +90,31 @@ export default async function RankingPage() {
         // Buscar nomes dos destaques manuais
         const top1 = members?.find(m => m.id === lastRacha.top1_id);
         const top1_extra = members?.find(m => m.id === lastRacha.top1_extra_id);
+        const top1_extra2 = members?.find(m => m.id === lastRacha.top1_extra2_id);
         const top2 = members?.find(m => m.id === lastRacha.top2_id);
         const top2_extra = members?.find(m => m.id === lastRacha.top2_extra_id);
+        const top2_extra2 = members?.find(m => m.id === lastRacha.top2_extra2_id);
         const top3 = members?.find(m => m.id === lastRacha.top3_id);
         const top3_extra = members?.find(m => m.id === lastRacha.top3_extra_id);
+        const top3_extra2 = members?.find(m => m.id === lastRacha.top3_extra2_id);
         const sheriff = members?.find(m => m.id === lastRacha.sheriff_id);
         const sheriff_extra = members?.find(m => m.id === lastRacha.sheriff_extra_id);
+        const sheriff_extra2 = members?.find(m => m.id === lastRacha.sheriff_extra2_id);
 
         weeklyHighlights = {
             rachaLabel: new Date(lastRacha.date_time).toLocaleDateString('pt-BR'),
             top1,
             top1_extra,
+            top1_extra2,
             top2,
             top2_extra,
+            top2_extra2,
             top3,
             top3_extra,
+            top3_extra2,
             sheriff,
-            sheriff_extra
+            sheriff_extra,
+            sheriff_extra2
         };
     }
 
@@ -143,16 +151,16 @@ export default async function RankingPage() {
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
 
         // Calcular Pontos (Highlights) baseados nas marcações manuais + Ajustes Manuais do painel admin
-        const top1Count = (allRachas?.filter((r: any) => r.top1_id === member.id || r.top1_extra_id === member.id).length || 0) +
+        const top1Count = (allRachas?.filter((r: any) => r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id).length || 0) +
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).top1_count || 0), 0);
 
-        const top2Count = (allRachas?.filter((r: any) => r.top2_id === member.id || r.top2_extra_id === member.id).length || 0) +
+        const top2Count = (allRachas?.filter((r: any) => r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id).length || 0) +
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).top2_count || 0), 0);
 
-        const top3Count = (allRachas?.filter((r: any) => r.top3_id === member.id || r.top3_extra_id === member.id).length || 0) +
+        const top3Count = (allRachas?.filter((r: any) => r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id).length || 0) +
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).top3_count || 0), 0);
 
-        const sheriffCount = (allRachas?.filter((r: any) => r.sheriff_id === member.id || r.sheriff_extra_id === member.id).length || 0) +
+        const sheriffCount = (allRachas?.filter((r: any) => r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id).length || 0) +
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).sheriff_count || 0), 0);
 
         const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
@@ -293,6 +301,11 @@ export default async function RankingPage() {
                                             {weeklyHighlights.top1_extra.name}
                                         </div>
                                     )}
+                                    {weeklyHighlights.top1_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top1_extra2.name}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Top 2 */}
@@ -305,6 +318,11 @@ export default async function RankingPage() {
                                     {weeklyHighlights.top2_extra && (
                                         <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
                                             {weeklyHighlights.top2_extra.name}
+                                        </div>
+                                    )}
+                                    {weeklyHighlights.top2_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top2_extra2.name}
                                         </div>
                                     )}
                                 </div>
@@ -321,6 +339,11 @@ export default async function RankingPage() {
                                             {weeklyHighlights.top3_extra.name}
                                         </div>
                                     )}
+                                    {weeklyHighlights.top3_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.top3_extra2.name}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Xerife */}
@@ -333,6 +356,11 @@ export default async function RankingPage() {
                                     {weeklyHighlights.sheriff_extra && (
                                         <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
                                             {weeklyHighlights.sheriff_extra.name}
+                                        </div>
+                                    )}
+                                    {weeklyHighlights.sheriff_extra2 && (
+                                        <div className="mt-2 pt-2 border-t border-white/10 font-bold text-white text-base leading-tight">
+                                            {weeklyHighlights.sheriff_extra2.name}
                                         </div>
                                     )}
                                 </div>
@@ -391,6 +419,18 @@ export default async function RankingPage() {
                                                             )}
                                                         </div>
                                                     )}
+                                                    {weeklyHighlights.top1_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-2xl font-black text-white tracking-wide drop-shadow-md">
+                                                                {weeklyHighlights.top1_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top1_extra2.position && (
+                                                                <span className="text-xs text-yellow-200/70 mt-1 uppercase tracking-wider font-semibold">
+                                                                    {weeklyHighlights.top1_extra2.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
@@ -413,6 +453,18 @@ export default async function RankingPage() {
                                                             {weeklyHighlights.top2_extra.position && (
                                                                 <span className="text-xs text-blue-200/50 mt-1">
                                                                     {weeklyHighlights.top2_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {weeklyHighlights.top2_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-gray-100">
+                                                                {weeklyHighlights.top2_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top2_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top2_extra2.position}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -443,6 +495,18 @@ export default async function RankingPage() {
                                                             )}
                                                         </div>
                                                     )}
+                                                    {weeklyHighlights.top3_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-orange-50">
+                                                                {weeklyHighlights.top3_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.top3_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.top3_extra2.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-6">
@@ -465,6 +529,18 @@ export default async function RankingPage() {
                                                             {weeklyHighlights.sheriff_extra.position && (
                                                                 <span className="text-xs text-blue-200/50 mt-1">
                                                                     {weeklyHighlights.sheriff_extra.position}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {weeklyHighlights.sheriff_extra2 && (
+                                                        <div className="flex flex-col items-center pt-2 border-t border-white/10 w-full">
+                                                            <span className="text-xl font-bold text-blue-50">
+                                                                {weeklyHighlights.sheriff_extra2.name}
+                                                            </span>
+                                                            {weeklyHighlights.sheriff_extra2.position && (
+                                                                <span className="text-xs text-blue-200/50 mt-1">
+                                                                    {weeklyHighlights.sheriff_extra2.position}
                                                                 </span>
                                                             )}
                                                         </div>
