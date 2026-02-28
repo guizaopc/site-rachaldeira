@@ -127,17 +127,14 @@ export default function UserProfilePage() {
     };
 
     const loadStats = async (memberId: string) => {
+        // 1. Buscar scouts de rachas (inclui ajustes manuais se o memberId estiver no racha de ajustes)
         const { data: rachaScouts } = await supabase
             .from('racha_scouts')
-            .select('goals, assists, difficult_saves')
+            .select('goals, assists, difficult_saves, attendance_count')
             .eq('member_id', memberId);
 
-        const { data: matchStats } = await supabase
-            .from('match_player_stats')
-            .select('goals, assists, difficult_saves')
-            .eq('member_id', memberId);
-
-        const { count: participations } = await supabase
+        // 2. Buscar presenças reais
+        const { count: realParticipations } = await supabase
             .from('racha_attendance')
             .select('*', { count: 'exact', head: true })
             .eq('member_id', memberId)
@@ -146,24 +143,20 @@ export default function UserProfilePage() {
         let totalGoals = 0;
         let totalAssists = 0;
         let totalSaves = 0;
+        let manualAttendance = 0;
 
         rachaScouts?.forEach(s => {
             totalGoals += s.goals || 0;
             totalAssists += s.assists || 0;
             totalSaves += s.difficult_saves || 0;
-        });
-
-        matchStats?.forEach(s => {
-            totalGoals += s.goals || 0;
-            totalAssists += s.assists || 0;
-            totalSaves += s.difficult_saves || 0;
+            manualAttendance += (s as any).attendance_count || 0;
         });
 
         setStats({
             goals: totalGoals,
             assists: totalAssists,
             difficult_saves: totalSaves,
-            participations: participations || 0
+            participations: (realParticipations || 0) + manualAttendance
         });
     };
 

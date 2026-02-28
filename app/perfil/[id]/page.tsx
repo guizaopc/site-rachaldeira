@@ -50,33 +50,26 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
         .eq('status', 'in');
 
     // 6. Buscar Destaques (Top 1, 2, 3 e Xerife) - Marcados na tabela rachas
-    const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').or(`top1_id.eq.${id},top1_extra_id.eq.${id}`);
-    const { data: rachasAsTop2 } = await supabase.from('rachas').select('id').or(`top2_id.eq.${id},top2_extra_id.eq.${id}`);
-    const { data: rachasAsTop3 } = await supabase.from('rachas').select('id').or(`top3_id.eq.${id},top3_extra_id.eq.${id}`);
-    const { data: rachasAsSheriff } = await supabase.from('rachas').select('id').or(`sheriff_id.eq.${id},sheriff_extra_id.eq.${id}`);
+    const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').or(`top1_id.eq.${id},top1_extra_id.eq.${id},top1_extra2_id.eq.${id}`);
+    const { data: rachasAsTop2 } = await supabase.from('rachas').select('id').or(`top2_id.eq.${id},top2_extra_id.eq.${id},top2_extra2_id.eq.${id}`);
+    const { data: rachasAsTop3 } = await supabase.from('rachas').select('id').or(`top3_id.eq.${id},top3_extra_id.eq.${id},top3_extra2_id.eq.${id}`);
+    const { data: rachasAsSheriff } = await supabase.from('rachas').select('id').or(`sheriff_id.eq.${id},sheriff_extra_id.eq.${id},sheriff_extra2_id.eq.${id}`);
 
-    // Consolidação de Dados
-    const goals = (rachaScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0) +
-        (champScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0);
-
-    const assists = (rachaScouts?.reduce((acc, s) => acc + (s.assists || 0), 0) || 0) +
-        (champScouts?.reduce((acc, s) => acc + (s.assists || 0), 0) || 0);
-
-    const saves = (rachaScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0) +
-        (champScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0);
-
-    const warnings = (rachaScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0) +
-        (champScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0);
+    // Consolidação de Dados (Excluindo campeonatos conforme solicitado)
+    const goals = (rachaScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0);
+    const assists = (rachaScouts?.reduce((acc, s) => acc + (s.assists || 0), 0) || 0);
+    const saves = (rachaScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0);
+    const warnings = (rachaScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0);
 
     // Jogos = Presenças Reais + Ajuste Manual de Fominha
     const manualAdjustment = rachaScouts?.find(s => s.racha_id === adjRacha?.id);
     const matches = (attendance?.length || 0) + ((manualAdjustment as any)?.attendance_count || 0);
 
-    // Destaques (Soma das indicações nos rachas + Ajustes Manuais)
-    const top1Count = (rachasAsTop1?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0) || 0);
-    const top2Count = (rachasAsTop2?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0) || 0);
-    const top3Count = (rachasAsTop3?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0) || 0);
-    const sheriffCount = (rachasAsSheriff?.length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0) || 0);
+    // Destaques (Soma das indicações nos rachas + Ajustes Manuais na racha_scouts)
+    const top1Count = (rachasAsTop1?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0) || 0);
+    const top2Count = (rachasAsTop2?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0) || 0);
+    const top3Count = (rachasAsTop3?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0) || 0);
+    const sheriffCount = (rachasAsSheriff?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0) || 0);
 
     const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
 

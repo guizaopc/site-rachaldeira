@@ -47,17 +47,13 @@ export default async function Stats2026Page() {
         const memberChampStats = championshipStats?.filter(s => s.member_id === member.id) || [];
         const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
 
-        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.goals || 0), 0);
+        const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
 
-        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.assists || 0), 0);
+        const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
 
-        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
+        const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
 
-        const warnings = memberRachaScouts.reduce((sum, s) => sum + (s.warnings || 0), 0) +
-            memberChampStats.reduce((sum, s) => sum + (s.warnings || 0), 0);
+        const warnings = memberRachaScouts.reduce((sum, s) => sum + (s.warnings || 0), 0);
 
         const participations = memberAttendance.length +
             memberRachaScouts.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
