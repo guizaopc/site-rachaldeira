@@ -77,22 +77,53 @@ export default function EdicaoScoutsPage() {
                 .eq('status', 'in')
                 .in('racha_id', allRachaIds.filter(id => id !== adjRacha?.id));
 
-            // 4. Consolidar: Agora mostramos EXATAMENTE o que está no racha de Ajustes
+            // 4. Consolidar
             const consolidated = membersData?.map(m => {
-                const manual = allRachaScouts?.find(s => s.member_id === m.id && s.racha_id === adjRacha?.id);
+                const rScouts = allRachaScouts?.filter(s => s.member_id === m.id) || [];
+                const cScouts = champScouts?.filter(s => s.member_id === m.id) || [];
+                const mAttendance = attendance?.filter(a => a.member_id === m.id) || [];
+                const manual = rScouts.find(s => s.racha_id === adjRacha?.id);
+
+                // Gols, Assis e Defesas (Soma de tudo EXCEPTO campeonatos)
+                const total_goals = rScouts.reduce((acc, s) => acc + (s.goals || 0), 0);
+                const total_assists = rScouts.reduce((acc, s) => acc + (s.assists || 0), 0);
+                const total_saves = rScouts.reduce((acc, s) => acc + (s.difficult_saves || 0), 0);
+
+                // Presidência/Jogos (Reais + Ajuste Manual)
+                const total_presence = mAttendance.length + (manual?.attendance_count || 0);
+
+                // Destaques (Soma das indicações nos rachas + Ajustes Manuais na racha_scouts)
+                // Incluindo suporte aos novos slots extra2
+                const total_top1 = (allRachas?.filter((r: any) => (r.top1_id === m.id || r.top1_extra_id === m.id || r.top1_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
+                    rScouts.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0);
+                const total_top2 = (allRachas?.filter((r: any) => (r.top2_id === m.id || r.top2_extra_id === m.id || r.top2_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
+                    rScouts.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0);
+                const total_top3 = (allRachas?.filter((r: any) => (r.top3_id === m.id || r.top3_extra_id === m.id || r.top3_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
+                    rScouts.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0);
+                const total_sheriff = (allRachas?.filter((r: any) => (r.sheriff_id === m.id || r.sheriff_extra_id === m.id || r.sheriff_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
+                    rScouts.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0);
 
                 return {
                     ...m,
                     manual_id: manual?.id || null,
-                    // Valores do racha de ajustes (agora são os totais manuais)
-                    total_goals: manual?.goals || 0,
-                    total_assists: manual?.assists || 0,
-                    total_saves: manual?.difficult_saves || 0,
-                    total_presence: manual?.attendance_count || 0,
-                    total_top1: (manual as any)?.top1_count || 0,
-                    total_top2: (manual as any)?.top2_count || 0,
-                    total_top3: (manual as any)?.top3_count || 0,
-                    total_sheriff: (manual as any)?.sheriff_count || 0,
+                    // Valores manuais (ajustes)
+                    manual_goals: manual?.goals || 0,
+                    manual_assists: manual?.assists || 0,
+                    manual_saves: manual?.difficult_saves || 0,
+                    manual_presence: manual?.attendance_count || 0,
+                    manual_top1: (manual as any)?.top1_count || 0,
+                    manual_top2: (manual as any)?.top2_count || 0,
+                    manual_top3: (manual as any)?.top3_count || 0,
+                    manual_sheriff: (manual as any)?.sheriff_count || 0,
+                    // Totais exibidos (Soma real + Ajuste)
+                    total_goals,
+                    total_assists,
+                    total_saves,
+                    total_presence,
+                    total_top1,
+                    total_top2,
+                    total_top3,
+                    total_sheriff
                 };
             }) || [];
 
@@ -112,6 +143,7 @@ export default function EdicaoScoutsPage() {
 
         try {
             const member = members.find(m => m.id === memberId);
+            const manualField = `manual_${field}`;
             const totalField = `total_${field}`;
 
             const dbFieldMap: any = {
@@ -126,7 +158,7 @@ export default function EdicaoScoutsPage() {
             };
 
             const dbField = dbFieldMap[field];
-            const newValue = Math.max(0, (member[totalField] || 0) + delta);
+            const newManualValue = Math.max(-1000, (member[manualField] || 0) + delta); // Permitir ajustes negativos se necessário
 
             // 1. Atualizar Supabase (Salvamento automático)
             const { error } = await supabase
@@ -134,7 +166,7 @@ export default function EdicaoScoutsPage() {
                 .upsert({
                     racha_id: adjustmentRachaId,
                     member_id: memberId,
-                    [dbField]: newValue
+                    [dbField]: newManualValue
                 }, { onConflict: 'racha_id,member_id' });
 
             if (error) throw error;
@@ -144,7 +176,8 @@ export default function EdicaoScoutsPage() {
                 if (m.id === memberId) {
                     return {
                         ...m,
-                        [totalField]: newValue
+                        [manualField]: newManualValue,
+                        [totalField]: Math.max(0, (m[totalField] || 0) + delta)
                     };
                 }
                 return m;
@@ -174,8 +207,8 @@ export default function EdicaoScoutsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planilha Geral (Geral)</h1>
-                    <p className="text-slate-500 font-medium">Edite os números totais da galera diretamente. Os valores aqui são os que aparecem no Ranking.</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planilha de Ajustes (Geral)</h1>
+                    <p className="text-slate-500 font-medium">Os ajustes manuais são SOMADOS aos scouts automáticos dos rachas.</p>
                 </div>
                 <Button onClick={loadData} variant="outline" className="gap-2">
                     <RefreshCcw size={16} /> Atualizar Tudo
