@@ -16,6 +16,10 @@ interface PlayerStats {
     saves: number;
     warnings: number;
     participations: number;
+    top1Count?: number;
+    top2Count?: number;
+    top3Count?: number;
+    sheriffCount?: number;
 }
 
 interface StatsTableProps {
@@ -80,15 +84,18 @@ export default function StatsTable({ stats, year }: StatsTableProps) {
             </CardHeader>
             <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                    <Table className="min-w-[800px]">
+                    <Table className="min-w-[1000px]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Jogador</TableHead>
-                                <TableHead className="text-center">Participações</TableHead>
+                                <TableHead className="text-center">Jogos</TableHead>
                                 <TableHead className="text-center">Gols</TableHead>
-                                <TableHead className="text-center">Assistências</TableHead>
+                                <TableHead className="text-center">Assist.</TableHead>
                                 <TableHead className="text-center">Defesas</TableHead>
-                                <TableHead className="text-center">Advertências</TableHead>
+                                <TableHead className="text-center">Top 1</TableHead>
+                                <TableHead className="text-center">Top 2</TableHead>
+                                <TableHead className="text-center">Top 3</TableHead>
+                                <TableHead className="text-center">Xerife</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -103,7 +110,7 @@ export default function StatsTable({ stats, year }: StatsTableProps) {
                                                     <span className="text-xs text-gray-500 block">{player.position}</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-center">{player.participations}</TableCell>
+                                            <TableCell className="text-center font-bold">{player.participations}</TableCell>
                                             <TableCell className="text-center font-semibold text-green-700">
                                                 {player.goals}
                                             </TableCell>
@@ -113,14 +120,15 @@ export default function StatsTable({ stats, year }: StatsTableProps) {
                                             <TableCell className="text-center text-red-700">
                                                 {player.saves}
                                             </TableCell>
-                                            <TableCell className="text-center text-yellow-700">
-                                                {player.warnings}
-                                            </TableCell>
+                                            <TableCell className="text-center font-medium">{player.top1Count || 0}</TableCell>
+                                            <TableCell className="text-center font-medium">{player.top2Count || 0}</TableCell>
+                                            <TableCell className="text-center font-medium">{player.top3Count || 0}</TableCell>
+                                            <TableCell className="text-center font-medium">{player.sheriffCount || 0}</TableCell>
                                         </TableRow>
                                     ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={9} className="h-24 text-center">
                                         Nenhum jogador encontrado com os filtros selecionados.
                                     </TableCell>
                                 </TableRow>
