@@ -23,12 +23,12 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
         notFound();
     }
 
-    // 2. Buscar Racha de Ajustes para ignorar na contagem de jogos
-    const { data: adjRacha } = await supabase
+    // 2. Buscar IDs de rachas de ajuste (pode haver mais de um legado)
+    const { data: allManualRachas } = await supabase
         .from('rachas')
         .select('id')
-        .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)')
-        .maybeSingle();
+        .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)');
+    const adjustmentRachaIds = allManualRachas?.map(r => r.id) || [];
 
     // 3. Buscar estatísticas de scouts (Rachas Normais + Ajustes)
     const { data: rachaScouts } = await supabase
@@ -50,19 +50,22 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
             racha_id,
             rachas!inner (
                 status,
-                location
+                location,
+                id
             )
         `)
         .eq('member_id', id)
         .eq('status', 'in')
-        .eq('rachas.status', 'closed')
-        .neq('rachas.location', 'Sistema (Manual)');
+        .eq('rachas.status', 'closed');
 
-    // 6. Buscar Destaques (Top 1, 2, 3 e Xerife) - Marcados na tabela rachas
-    const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').or(`top1_id.eq.${id},top1_extra_id.eq.${id},top1_extra2_id.eq.${id}`);
-    const { data: rachasAsTop2 } = await supabase.from('rachas').select('id').or(`top2_id.eq.${id},top2_extra_id.eq.${id},top2_extra2_id.eq.${id}`);
-    const { data: rachasAsTop3 } = await supabase.from('rachas').select('id').or(`top3_id.eq.${id},top3_extra_id.eq.${id},top3_extra2_id.eq.${id}`);
-    const { data: rachasAsSheriff } = await supabase.from('rachas').select('id').or(`sheriff_id.eq.${id},sheriff_extra_id.eq.${id},sheriff_extra2_id.eq.${id}`);
+    // Filtrar apenas presenças reais (não manuais)
+    const realAttendance = attendance?.filter(a => !adjustmentRachaIds.includes((a.rachas as any).id)) || [];
+
+    // 6. Buscar Destaques (Top 1, 2, 3 e Xerife) - Marcados na tabela rachas (Apenas Rachas Fechados)
+    const { data: rachasAsTop1 } = await supabase.from('rachas').select('id').eq('status', 'closed').or(`top1_id.eq.${id},top1_extra_id.eq.${id},top1_extra2_id.eq.${id}`);
+    const { data: rachasAsTop2 } = await supabase.from('rachas').select('id').eq('status', 'closed').or(`top2_id.eq.${id},top2_extra_id.eq.${id},top2_extra2_id.eq.${id}`);
+    const { data: rachasAsTop3 } = await supabase.from('rachas').select('id').eq('status', 'closed').or(`top3_id.eq.${id},top3_extra_id.eq.${id},top3_extra2_id.eq.${id}`);
+    const { data: rachasAsSheriff } = await supabase.from('rachas').select('id').eq('status', 'closed').or(`sheriff_id.eq.${id},sheriff_extra_id.eq.${id},sheriff_extra2_id.eq.${id}`);
 
     // Consolidação de Dados (Excluindo campeonatos conforme solicitado)
     const goals = (rachaScouts?.reduce((acc, s) => acc + (s.goals || 0), 0) || 0);
@@ -70,15 +73,22 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
     const saves = (rachaScouts?.reduce((acc, s) => acc + (s.difficult_saves || 0), 0) || 0);
     const warnings = (rachaScouts?.reduce((acc, s) => acc + (s.warnings || 0), 0) || 0);
 
-    // Jogos = Presenças Reais + Ajuste Manual de Fominha
-    const manualAdjustment = rachaScouts?.find(s => s.racha_id === adjRacha?.id);
-    const matches = (attendance?.length || 0) + ((manualAdjustment as any)?.attendance_count || 0);
+    // Buscar TODOS os ajustes manuais deste membro
+    const manualAdjustments = rachaScouts?.filter(s => adjustmentRachaIds.includes(s.racha_id)) || [];
+    const manualGames = manualAdjustments.reduce((acc, s) => acc + ((s as any).attendance_count || 0), 0);
+    const manualTop1 = manualAdjustments.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0);
+    const manualTop2 = manualAdjustments.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0);
+    const manualTop3 = manualAdjustments.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0);
+    const manualSheriff = manualAdjustments.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0);
 
-    // Destaques (Soma das indicações nos rachas + Ajustes Manuais na racha_scouts)
-    const top1Count = (rachasAsTop1?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0) || 0);
-    const top2Count = (rachasAsTop2?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0) || 0);
-    const top3Count = (rachasAsTop3?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0) || 0);
-    const sheriffCount = (rachasAsSheriff?.filter(r => r.id !== adjRacha?.id).length || 0) + (rachaScouts?.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0) || 0);
+    // Jogos = Presenças Reais + Ajuste Manual de Fominha
+    const matches = realAttendance.length + manualGames;
+
+    // Destaques (Soma das indicações nos rachas FECHADOS + Ajustes Manuais na Planilha Geral)
+    const top1Count = (rachasAsTop1?.filter(r => !adjustmentRachaIds.includes(r.id)).length || 0) + manualTop1;
+    const top2Count = (rachasAsTop2?.filter(r => !adjustmentRachaIds.includes(r.id)).length || 0) + manualTop2;
+    const top3Count = (rachasAsTop3?.filter(r => !adjustmentRachaIds.includes(r.id)).length || 0) + manualTop3;
+    const sheriffCount = (rachasAsSheriff?.filter(r => !adjustmentRachaIds.includes(r.id)).length || 0) + manualSheriff;
 
     const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
 

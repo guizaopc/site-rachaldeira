@@ -132,42 +132,48 @@ export default async function RankingPage() {
         .from('match_player_stats')
         .select('*');
 
-    // Obter o ID do racha de ajustes
-    const adjustmentRacha = allRachas?.find(r => r.location === 'Sistema (Manual)' || r.name === 'Ajustes Globais Manuais');
+    // Obter IDs dos rachas de ajustes (pode haver mais de um legado)
+    const adjustmentRachaIds = allRachas?.filter(r => r.location === 'Sistema (Manual)' || r.name === 'Ajustes Globais Manuais').map(r => r.id) || [];
 
     // Calcular rankings para cada membro (APENAS RACHAS ENCERRADOS + CAMPEONATOS + AJUSTES)
     const rankings = members?.map(member => {
         const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
         const memberChampStats = championshipStats?.filter(s => s.member_id === member.id) || [];
+
+        // Estatísticas Básicas (Soma de todos os rachas, incluindo ajustes se salvos em scouts)
         const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
         const assists = memberRachaScouts.reduce((sum, sumS) => sum + (sumS.assists || 0), 0);
         const saves = memberRachaScouts.reduce((sum, sumS) => sum + (sumS.difficult_saves || 0), 0);
 
-        // Participações: Apenas Rachas ENCERRADOS (reais) + Ajustes Manuais
-        const closedRachaIds = allRachas?.filter(r => r.status === 'closed' && r.id !== adjustmentRacha?.id).map(r => r.id) || [];
-        const memberAttendanceCount = attendance?.filter(a => a.member_id === member.id && closedRachaIds.includes(a.racha_id)).length || 0;
+        // Participações: Apenas Rachas ENCERRADOS (reais) + Soma de Ajustes Manuais
+        const closedRealRachaIds = allRachas?.filter(r => r.status === 'closed' && !adjustmentRachaIds.includes(r.id)).map(r => r.id) || [];
+        const memberAttendanceCount = attendance?.filter(a => a.member_id === member.id && closedRealRachaIds.includes(a.racha_id)).length || 0;
 
-        const participations = memberAttendanceCount +
-            memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).attendance_count || 0), 0);
+        // Buscar TODOS os ajustes manuais deste membro em rachas de sistema
+        const manualAdjustments = memberRachaScouts.filter(s => adjustmentRachaIds.includes(s.racha_id));
+        const manualGames = manualAdjustments.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
+        const participations = memberAttendanceCount + manualGames;
 
-        // Calcular Pontos (Highlights) baseados nas marcações manuais + Ajustes Manuais do painel admin
-        // r.id !== adjustmentRacha?.id para não contar o racha de ajuste duas vezes como racha fechado
-        const top1Count = (allRachas?.filter((r: any) => (r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id) && r.id !== adjustmentRacha?.id).length || 0) +
-            memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).top1_count || 0), 0);
+        // Calcular Pontos (Highlights) baseados nas marcações em rachas FECHADOS + Ajustes Manuais da Planilha Geral
+        const manualTop1 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top1_count || 0), 0);
+        const manualTop2 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top2_count || 0), 0);
+        const manualTop3 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top3_count || 0), 0);
+        const manualSheriff = manualAdjustments.reduce((sum, s) => sum + ((s as any).sheriff_count || 0), 0);
 
-        const top2Count = (allRachas?.filter((r: any) => (r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id) && r.id !== adjustmentRacha?.id).length || 0) +
-            memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).top2_count || 0), 0);
+        const top1Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id)).length || 0) + manualTop1;
 
-        const top3Count = (allRachas?.filter((r: any) => (r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id) && r.id !== adjustmentRacha?.id).length || 0) +
-            memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).top3_count || 0), 0);
+        const top2Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id)).length || 0) + manualTop2;
 
-        const sheriffCount = (allRachas?.filter((r: any) => (r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id) && r.id !== adjustmentRacha?.id).length || 0) +
-            memberRachaScouts.reduce((sum, sumS) => sum + ((sumS as any).sheriff_count || 0), 0);
+        const top3Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id)).length || 0) + manualTop3;
+
+        const sheriffCount = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id)).length || 0) + manualSheriff;
 
         const points = (top1Count * 3) + (top2Count * 2) + top3Count + sheriffCount;
 
         const craqueVotes = votes.filter(v => v.craque_member_id === member.id).length;
         const xerifeVotes = votes.filter(v => v.xerife_member_id === member.id).length;
+
+        const totalClosedRachas = allRachas?.filter(r => r.status === 'closed' && !adjustmentRachaIds.includes(r.id)).length || 0;
 
         return {
             ...member,
@@ -175,9 +181,7 @@ export default async function RankingPage() {
             assists,
             saves,
             participations,
-            fominhaPct: (allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').length || 0) > 0
-                ? Math.round((memberAttendanceCount / (allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').length || 1)) * 100)
-                : 0,
+            fominhaPct: totalClosedRachas > 0 ? Math.round((memberAttendanceCount / totalClosedRachas) * 100) : 0,
             top1Count,
             top2Count,
             top3Count,

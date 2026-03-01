@@ -17,7 +17,7 @@ export default async function Stats2026Page() {
     // Buscar TODOS os rachas de 2026 (para ser em tempo real) + Ajustes Globais
     const { data: allRachas } = await supabase
         .from('rachas')
-        .select('id, date_time, location, status, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id')
+        .select('id, name, date_time, location, status, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id')
         .or(`and(date_time.gte.${year}-01-01,date_time.lt.${year + 1}-01-01),location.eq.Sistema (Manual)`);
 
     const allRachaIds = allRachas?.map(r => r.id) || [];
@@ -45,27 +45,30 @@ export default async function Stats2026Page() {
     const stats = members?.map(member => {
         const memberRachaScouts = rachaScouts?.filter(s => s.member_id === member.id) || [];
         const memberAttendance = attendance?.filter(a => a.member_id === member.id) || [];
-        const manualScout = rachaScouts?.find(s => s.member_id === member.id && (allRachas?.find(r => r.id === s.racha_id)?.location === 'Sistema (Manual)'));
+        // Buscar TODOS os ajustes manuais deste membro em rachas de sistema (Ajustes Globais Manuais)
+        const adjustmentRachaIds = allRachas?.filter(r => r.location === 'Sistema (Manual)' || r.name === 'Ajustes Globais Manuais').map(r => r.id) || [];
+        const manualAdjustments = memberRachaScouts.filter(s => adjustmentRachaIds.includes(s.racha_id));
 
         const goals = memberRachaScouts.reduce((sum, s) => sum + (s.goals || 0), 0);
         const assists = memberRachaScouts.reduce((sum, s) => sum + (s.assists || 0), 0);
         const saves = memberRachaScouts.reduce((sum, s) => sum + (s.difficult_saves || 0), 0);
         const warnings = memberRachaScouts.reduce((sum, s) => sum + (s.warnings || 0), 0);
 
-        // Jogos: Rachas Fechados + Ajuste Manual
-        const closedRachaIdsArray = allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').map(r => r.id) || [];
-        const participations = memberAttendance.filter(a => closedRachaIdsArray.includes(a.racha_id)).length +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
+        // Jogos: Rachas Fechados + Soma de Ajustes Manuais
+        const closedRealRachaIds = allRachas?.filter(r => r.status === 'closed' && !adjustmentRachaIds.includes(r.id)).map(r => r.id) || [];
+        const manualGames = manualAdjustments.reduce((sum, s) => sum + ((s as any).attendance_count || 0), 0);
+        const participations = memberAttendance.filter(a => closedRealRachaIds.includes(a.racha_id)).length + manualGames;
 
-        // Destaques: Automático (Rachas Fechados) + Manual
-        const top1Count = (allRachas?.filter((r: any) => r.status === 'closed' && (r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id)).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top1_count || 0), 0);
-        const top2Count = (allRachas?.filter((r: any) => r.status === 'closed' && (r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id)).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top2_count || 0), 0);
-        const top3Count = (allRachas?.filter((r: any) => r.status === 'closed' && (r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id)).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).top3_count || 0), 0);
-        const sheriffCount = (allRachas?.filter((r: any) => r.status === 'closed' && (r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id)).length || 0) +
-            memberRachaScouts.reduce((sum, s) => sum + ((s as any).sheriff_count || 0), 0);
+        // Destaques: Automático (Rachas Fechados) + Soma de Ajustes Manuais
+        const manualTop1 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top1_count || 0), 0);
+        const manualTop2 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top2_count || 0), 0);
+        const manualTop3 = manualAdjustments.reduce((sum, s) => sum + ((s as any).top3_count || 0), 0);
+        const manualSheriff = manualAdjustments.reduce((sum, s) => sum + ((s as any).sheriff_count || 0), 0);
+
+        const top1Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top1_id === member.id || r.top1_extra_id === member.id || r.top1_extra2_id === member.id)).length || 0) + manualTop1;
+        const top2Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top2_id === member.id || r.top2_extra_id === member.id || r.top2_extra2_id === member.id)).length || 0) + manualTop2;
+        const top3Count = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.top3_id === member.id || r.top3_extra_id === member.id || r.top3_extra2_id === member.id)).length || 0) + manualTop3;
+        const sheriffCount = (allRachas?.filter((r: any) => r.status === 'closed' && !adjustmentRachaIds.includes(r.id) && (r.sheriff_id === member.id || r.sheriff_extra_id === member.id || r.sheriff_extra2_id === member.id)).length || 0) + manualSheriff;
 
         return {
             ...member,
