@@ -30,6 +30,8 @@ export default function EdicaoScoutsPage() {
                 .from('rachas')
                 .select('id')
                 .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)')
+                .order('created_at', { ascending: true }) // Pegar o primeiro criado para ser o mestre
+                .limit(1)
                 .maybeSingle();
 
             if (!adjRacha) {
