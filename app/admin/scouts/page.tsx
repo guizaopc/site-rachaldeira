@@ -193,6 +193,67 @@ export default function EdicaoScoutsPage() {
         }
     };
 
+    const handleDirectUpdate = async (memberId: string, field: string, targetedTotal: number) => {
+        if (!adjustmentRachaId) return;
+
+        setSavingId(`${memberId}-${field}`);
+        const supabase = createClient();
+
+        try {
+            const member = members.find(m => m.id === memberId);
+            const manualField = `manual_${field}`;
+            const totalField = `total_${field}`;
+
+            const dbFieldMap: any = {
+                'goals': 'goals',
+                'assists': 'assists',
+                'saves': 'difficult_saves',
+                'presence': 'attendance_count',
+                'top1': 'top1_count',
+                'top2': 'top2_count',
+                'top3': 'top3_count',
+                'sheriff': 'sheriff_count'
+            };
+
+            const dbField = dbFieldMap[field];
+
+            // Calcula quanto precisamos ajustar no manual para chegar no total desejado
+            const currentTotal = member[totalField] || 0;
+            const currentManual = member[manualField] || 0;
+            const diff = targetedTotal - currentTotal;
+            const newManualValue = currentManual + diff;
+
+            // 1. Atualizar Supabase (Salvamento automático)
+            const { error } = await supabase
+                .from('racha_scouts')
+                .upsert({
+                    racha_id: adjustmentRachaId,
+                    member_id: memberId,
+                    [dbField]: newManualValue
+                }, { onConflict: 'racha_id,member_id' });
+
+            if (error) throw error;
+
+            // 2. Atualizar estado local
+            setMembers(prev => prev.map(m => {
+                if (m.id === memberId) {
+                    return {
+                        ...m,
+                        [manualField]: newManualValue,
+                        [totalField]: targetedTotal
+                    };
+                }
+                return m;
+            }));
+
+        } catch (error: any) {
+            console.error('Erro ao salvar ajuste direto:', error);
+            alert('Erro ao salvar: ' + error.message);
+        } finally {
+            setSavingId(null);
+        }
+    };
+
     const filteredMembers = members.filter(m =>
         m.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -258,14 +319,14 @@ export default function EdicaoScoutsPage() {
                                             <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{member.position || 'N/I'}</div>
                                         </TableCell>
 
-                                        <TableCell><ScoutCell member={member} field="presence" color="slate" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-presence`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="goals" color="red" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-goals`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="assists" color="emerald" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-assists`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="saves" color="purple" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-saves`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top1" color="yellow" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top1`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top2" color="slate" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top2`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top3" color="orange" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-top3`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="sheriff" color="blue" onUpdate={updateScoutValue} isSaving={savingId?.startsWith(`${member.id}-sheriff`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="presence" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-presence`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="goals" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-goals`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="assists" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-assists`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="saves" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-saves`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top1" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top1`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top2" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top2`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="top3" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top3`)} /></TableCell>
+                                        <TableCell><ScoutCell member={member} field="sheriff" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-sheriff`)} /></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -279,29 +340,40 @@ export default function EdicaoScoutsPage() {
                     <CheckCircle className="text-white" size={20} />
                 </div>
                 <p className="text-emerald-800 text-sm font-bold">
-                    Salvamento Automático Ativo! Cada alteração é salva instantaneamente no banco de dados.
+                    Salvamento Automático Ativo! Cada alteração é salva instantaneamente no banco de dados. Você também pode digitar os valores diretamente nos campos.
                 </p>
             </div>
         </div>
     );
 }
 
-function ScoutCell({ member, field, color, onUpdate, isSaving }: any) {
+function ScoutCell({ member, field, onUpdate, onDirectUpdate, isSaving }: any) {
     const totalField = `total_${field}`;
-    const colorScheme: any = {
-        red: { text: 'text-red-600', btn: 'bg-red-50 text-red-600 hover:bg-red-100' },
-        emerald: { text: 'text-emerald-600', btn: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
-        purple: { text: 'text-purple-600', btn: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-        yellow: { text: 'text-yellow-600', btn: 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' },
-        slate: { text: 'text-slate-600', btn: 'bg-slate-50 text-slate-600 hover:bg-slate-100' },
-        orange: { text: 'text-orange-600', btn: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
-        blue: { text: 'text-blue-600', btn: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
+    const [localValue, setLocalValue] = useState(member[totalField] || 0);
+
+    // Sincronizar valor local quando o membro mudar
+    useEffect(() => {
+        setLocalValue(member[totalField] || 0);
+    }, [member[totalField]]);
+
+    const handleBlur = () => {
+        const numValue = parseInt(localValue);
+        if (!isNaN(numValue) && numValue !== member[totalField]) {
+            onDirectUpdate(member.id, field, numValue);
+        } else {
+            setLocalValue(member[totalField] || 0);
+        }
     };
-    const s = colorScheme[color];
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+        }
+    };
 
     return (
         <div className="flex flex-col items-center justify-center gap-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
                 <button
                     onClick={() => onUpdate(member.id, field, -1)}
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm disabled:opacity-50"
@@ -310,9 +382,17 @@ function ScoutCell({ member, field, color, onUpdate, isSaving }: any) {
                     <Minus size={14} />
                 </button>
 
-                <div className={`min-w-[36px] px-1 h-8 flex items-center justify-center rounded-lg font-black text-sm border-2 bg-white ${isSaving ? 'border-dashed border-blue-400 text-blue-400' : 'border-slate-100 text-slate-800'}`}>
-                    {isSaving ? '...' : member[totalField] || 0}
-                </div>
+                <input
+                    type="text"
+                    value={isSaving ? '...' : localValue}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    disabled={isSaving}
+                    className={`w-11 h-8 text-center rounded-lg font-black text-sm border-2 bg-white transition-all
+                        ${isSaving ? 'border-dashed border-blue-400 text-blue-400 bg-blue-50' : 'border-slate-100 text-slate-800 focus:border-blue-500 focus:ring-0 focus:outline-none'}
+                    `}
+                />
 
                 <button
                     onClick={() => onUpdate(member.id, field, 1)}

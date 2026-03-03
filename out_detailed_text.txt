@@ -1,0 +1,4 @@
+﻿ID: 43724b23-62a3-4262-ba98-aa85d7867aa7, Name: Ajustes Globais Manuais, Location: Sistema (Manual), Next: false, Date: 2026-03-02T03:36:02.883+00:00
+ID: 0f042a7b-02a0-492a-b53d-70517e02c694, Name: Racha Semanal, Location: Quadra Ga├║cho, Next: true, Date: 2026-02-28T11:00:00+00:00
+ID: 58cffe4f-559e-4168-8c0f-3fe391988105, Name: null, Location: Quadra Ga├║cho, Next: false, Date: 2026-02-21T11:00:00+00:00
+
