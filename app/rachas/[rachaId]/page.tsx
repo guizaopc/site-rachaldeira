@@ -34,6 +34,19 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
             .single();
         isAdmin = profile?.role === 'admin' || profile?.role === 'director';
         userMemberId = profile?.member_id || null;
+
+        // Fallback: perfil sem vínculo → procura o integrante pelo e-mail e já grava o vínculo
+        if (!userMemberId && user.email) {
+            const { data: memberByEmail } = await supabase
+                .from('members')
+                .select('id')
+                .ilike('email', user.email.replace(/[%_\\]/g, '\\$&'))
+                .maybeSingle();
+            if (memberByEmail) {
+                userMemberId = memberByEmail.id;
+                await supabase.from('profiles').update({ member_id: memberByEmail.id }).eq('id', user.id);
+            }
+        }
     }
 
     if (!racha) {
