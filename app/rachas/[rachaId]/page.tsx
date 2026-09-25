@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { CalendarDays, MapPin, Clock, Users, Trophy, Shield, Medal, Activity, ChevronLeft, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import RachaAttendance from '@/components/racha-attendance';
+import { resolveMemberId } from '@/lib/resolve-member';
 import StartRachaButton from '@/components/start-racha-button';
 import OpenRachaButton from '@/components/open-racha-button';
 import ShareRachaButton from '@/components/share-racha-button';
@@ -27,26 +28,9 @@ export default async function RachaDetalhesPage({ params }: { params: Promise<{ 
     let userMemberId: string | null = null;
 
     if (user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, member_id')
-            .eq('id', user.id)
-            .single();
-        isAdmin = profile?.role === 'admin' || profile?.role === 'director';
-        userMemberId = profile?.member_id || null;
-
-        // Fallback: perfil sem vínculo → procura o integrante pelo e-mail e já grava o vínculo
-        if (!userMemberId && user.email) {
-            const { data: memberByEmail } = await supabase
-                .from('members')
-                .select('id')
-                .ilike('email', user.email.replace(/[%_\\]/g, '\\$&'))
-                .maybeSingle();
-            if (memberByEmail) {
-                userMemberId = memberByEmail.id;
-                await supabase.from('profiles').update({ member_id: memberByEmail.id }).eq('id', user.id);
-            }
-        }
+        const { memberId, role } = await resolveMemberId(user);
+        isAdmin = role === 'admin' || role === 'director';
+        userMemberId = memberId;
     }
 
     if (!racha) {
