@@ -82,10 +82,6 @@ export default async function PresencaPage({
                 <div className="max-w-5xl mx-auto px-4 pt-12 pb-10">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
                         <div>
-                            <p className="flex items-center gap-2 text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-3">
-                                <Users size={14} />
-                                Frequência
-                            </p>
                             <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-3">
                                 Presença dos Jogadores
                             </h1>

@@ -178,7 +178,6 @@ export default async function IntegrantesPage() {
                 <div className="max-w-7xl mx-auto px-4 pt-12 pb-10">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                         <div>
-                            <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-3">Elenco</p>
                             <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-3">
                                 Integrantes
                             </h1>

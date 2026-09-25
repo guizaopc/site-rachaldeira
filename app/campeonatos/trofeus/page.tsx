@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, Star, Target, Shield, Utensils, ShieldAlert, ArrowLeft, Medal } from 'lucide-react';
+import { Trophy, Star, Target, Shield, Utensils, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -152,10 +152,6 @@ export default async function TrofeusPage() {
                 <div className="max-w-6xl mx-auto px-4 pt-12 pb-10">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
                         <div>
-                            <p className="flex items-center gap-2 text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-3">
-                                <Medal size={14} />
-                                Hall da Fama
-                            </p>
                             <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-3">
                                 Troféus & Campeões
                             </h1>

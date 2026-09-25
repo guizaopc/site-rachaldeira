@@ -253,7 +253,6 @@ export default async function RankingPage() {
                             className="h-36 md:h-44 object-contain flex-shrink-0"
                         />
                         <div>
-                            <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-3">Premiação Anual</p>
                             <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-3">
                                 Ranking 2026
                             </h1>
@@ -314,7 +313,6 @@ export default async function RankingPage() {
                     <section className="mb-12">
                         <div className="flex items-end justify-between gap-4 mb-5">
                             <div>
-                                <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-2">Último racha</p>
                                 <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                                     Destaques da Semana
                                 </h2>

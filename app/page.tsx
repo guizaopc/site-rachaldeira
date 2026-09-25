@@ -137,10 +137,6 @@ export default async function Home() {
 
                 <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 w-full pt-36 md:pt-40 pb-8">
                     <div className="animate-fade-in-up">
-                        <p className="flex items-center gap-3 text-white/80 text-xs md:text-sm font-bold uppercase tracking-[0.25em] mb-2">
-                            <span className="inline-block w-8 h-[3px] rounded-full bg-[#e02418]" />
-                            Futebol & Resenha desde 2019
-                        </p>
                         <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight leading-none">
                             Rachaldeira
                         </h1>
@@ -173,12 +169,12 @@ export default async function Home() {
                     <section>
                         <div className="flex flex-wrap items-end justify-between gap-4 mb-6 md:mb-8">
                             <div>
-                                <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                                    Último Racha · {weeklyHighlights.rachaLabel}
-                                </p>
                                 <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                                     Destaques da Semana
                                 </h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Racha de {weeklyHighlights.rachaLabel}
+                                </p>
                             </div>
                             <Link
                                 href="/rank"
@@ -222,9 +218,6 @@ export default async function Home() {
                 <section>
                     <div className="flex flex-wrap items-end justify-between gap-4 mb-6 md:mb-8">
                         <div>
-                            <p className="text-[#093a9f] text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                                Agenda
-                            </p>
                             <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                                 Próximos Rachas
                             </h2>
@@ -283,9 +276,6 @@ export default async function Home() {
                 {/* História do Grupo */}
                 <section>
                     <div className="mb-6 md:mb-8">
-                        <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                            Desde 2019
-                        </p>
                         <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                             Nossa História
                         </h2>
@@ -334,9 +324,6 @@ export default async function Home() {
                     {/* Campeonatos */}
                     <section>
                         <div className="mb-6">
-                            <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                                Competições
-                            </p>
                             <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                                 Campeonatos
                             </h2>
@@ -381,9 +368,6 @@ export default async function Home() {
                     {/* Instagram */}
                     <section className="flex flex-col">
                         <div className="mb-6">
-                            <p className="text-[#093a9f] text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                                Rede Social
-                            </p>
                             <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
                                 Siga o Rachaldeira
                             </h2>

@@ -266,7 +266,6 @@ export default function UserProfilePage() {
         <div className="py-10 px-4">
             <div className="max-w-3xl mx-auto space-y-5">
                 <div>
-                    <p className="text-[#af1c15] text-xs font-bold uppercase tracking-[0.2em] mb-2">Minha conta</p>
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight">Meu Perfil</h1>
                 </div>
 
