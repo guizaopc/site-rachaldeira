@@ -4,6 +4,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Trophy, Medal } from 'lucide-react';
 import VotingForm from '@/components/voting-form';
 import HighlightsGrid from './highlights-grid';
+import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
 export const revalidate = 0;
 
@@ -106,7 +107,7 @@ export default async function RankingPage() {
     // Buscar todos os membros ativos
     const { data: members } = await supabase
         .from('members')
-        .select('*')
+        .select(PUBLIC_MEMBER_COLUMNS)
         .eq('is_active', true)
         .order('name');
 

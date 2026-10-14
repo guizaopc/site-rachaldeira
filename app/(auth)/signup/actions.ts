@@ -1,5 +1,6 @@
 'use server';
 
+import { safeImageExtension } from '@/lib/utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 
@@ -16,6 +17,12 @@ export async function signUpAction(formData: FormData) {
     if (!email || !password || !name) {
         return { error: 'Dados obrigatórios ausentes.' };
     }
+    if (password.length < 8) {
+        return { error: 'A senha deve ter pelo menos 8 caracteres.' };
+    }
+    if (name.length > 100 || email.length > 254 || (phone && phone.length > 30)) {
+        return { error: 'Dados inválidos.' };
+    }
 
     const supabase = createAdminClient();
 
@@ -31,19 +38,12 @@ export async function signUpAction(formData: FormData) {
             return { error: 'Este e-mail já está cadastrado como integrante. Tente fazer login.' };
         }
 
-        // 2. Check if user already exists in Auth (but maybe not in members)
-        const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-        const existingAuthUser = users.find(u => u.email?.toLowerCase() === email);
-
+        // 2. Create auth user with auto-confirm.
+        // Não reaproveitamos contas de Auth existentes: quem soubesse o e-mail de outra
+        // pessoa conseguiria vincular um integrante à conta dela. Se o e-mail já existir,
+        // o Supabase retorna erro e o cadastro é recusado.
         let userId: string;
-
-        if (existingAuthUser) {
-            // User exists in Auth but not in Members (checked above)
-            // We'll reuse this user ID
-            userId = existingAuthUser.id;
-            console.log('User already exists in Auth, reusing ID:', userId);
-        } else {
-            // 3. Create auth user with auto-confirm
+        {
             const { data: authData, error: signUpError } = await supabase.auth.admin.createUser({
                 email,
                 password,
@@ -56,6 +56,9 @@ export async function signUpAction(formData: FormData) {
                 const msg = signUpError.message.includes('unexpected response')
                     ? 'O servidor do Supabase retornou um erro inesperado (500). Verifique a conexão.'
                     : signUpError.message;
+                if (signUpError.message.toLowerCase().includes('already')) {
+                    return { error: 'Este e-mail já possui conta. Tente fazer login ou recuperar a senha.' };
+                }
                 return { error: 'Erro no servidor de autenticação: ' + msg };
             }
 
@@ -109,7 +112,8 @@ export async function signUpAction(formData: FormData) {
         // If image upload fails, the user is still registered! This is better than failing the whole process.
         if (photo && photo.size > 0) {
             try {
-                const fileExt = photo.name.split('.').pop();
+                const fileExt = safeImageExtension(photo);
+                if (!fileExt) throw new Error('Foto inválida (use JPG, PNG, WEBP ou GIF até 5 MB)');
                 const fileName = `${memberData.id}_${Date.now()}.${fileExt}`;
                 
                 const { error: uploadError } = await supabase.storage

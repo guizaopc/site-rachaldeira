@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ArrowLeft, User, Trophy, Activity, Shield, Star, Medal, Crown, Award } from 'lucide-react';
+import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
 export const revalidate = 0;
 
@@ -12,7 +13,7 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
 
     const { data: member, error: memberError } = await supabase
         .from('members')
-        .select('*')
+        .select(PUBLIC_MEMBER_COLUMNS)
         .eq('id', id)
         .single();
 

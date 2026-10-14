@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { requireRole } from '@/lib/auth';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+const MAX_BASE64_LENGTH = 7_000_000; // ~5 MB de imagem
+
 export async function POST(request: NextRequest) {
+    // Só admin/diretor: cada chamada consome créditos da API da Anthropic
+    const auth = await requireRole(['admin', 'director']);
+    if (auth.error) {
+        return NextResponse.json({ error: auth.error }, { status: auth.user ? 403 : 401 });
+    }
+
     try {
         const { imageBase64, mediaType } = await request.json();
 
-        if (!imageBase64) {
+        if (!imageBase64 || typeof imageBase64 !== 'string') {
             return NextResponse.json({ error: 'Imagem não fornecida' }, { status: 400 });
         }
+        if (imageBase64.length > MAX_BASE64_LENGTH) {
+            return NextResponse.json({ error: 'Imagem muito grande (máx. 5 MB)' }, { status: 413 });
+        }
+        const safeMediaType = ALLOWED_MEDIA_TYPES.find(t => t === mediaType) ?? 'image/jpeg';
 
         const response = await client.messages.create({
             model: 'claude-sonnet-4-6',
@@ -22,7 +36,7 @@ export async function POST(request: NextRequest) {
                             type: 'image',
                             source: {
                                 type: 'base64',
-                                media_type: mediaType || 'image/jpeg',
+                                media_type: safeMediaType,
                                 data: imageBase64,
                             },
                         },
@@ -75,6 +89,6 @@ Retorne SOMENTE um JSON válido, sem texto adicional, no formato:
         return NextResponse.json(parsed);
     } catch (error: any) {
         console.error('Erro ao processar imagem:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Erro ao processar imagem' }, { status: 500 });
     }
 }

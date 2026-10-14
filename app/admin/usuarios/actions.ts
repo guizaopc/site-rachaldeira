@@ -2,8 +2,12 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { requireRole } from '@/lib/auth';
 
 export async function linkUserToMember(userId: string, memberId: string | null) {
+    const auth = await requireRole(['admin']);
+    if (auth.error) return { error: auth.error };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -20,6 +24,10 @@ export async function linkUserToMember(userId: string, memberId: string | null) 
 }
 
 export async function deleteUserAndProfile(userId: string) {
+    const auth = await requireRole(['admin']);
+    if (auth.error) return { error: auth.error };
+    if (auth.user?.id === userId) return { error: 'Você não pode excluir a própria conta.' };
+
     const supabase = createAdminClient();
 
     // Delete from profiles (should be cascade by DB, but good to be sure)

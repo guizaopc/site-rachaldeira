@@ -5,7 +5,9 @@ import { resolveMemberId } from '@/lib/resolve-member';
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
-    const next = searchParams.get('next') ?? '/';
+    // Só caminhos internos: "//evil.com" ou "@evil.com" viram open redirect
+    const rawNext = searchParams.get('next') ?? '/';
+    const next = rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\') ? rawNext : '/';
 
     if (code) {
         const supabase = await createClient();

@@ -52,6 +52,8 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.pathname.startsWith('/forgot-password') ||
         request.nextUrl.pathname.startsWith('/reset-password') ||
         request.nextUrl.pathname.startsWith('/auth') ||
+        // Cron da Vercel não tem sessão; a rota valida o CRON_SECRET
+        request.nextUrl.pathname.startsWith('/api/cron/') ||
         request.nextUrl.pathname.startsWith('/rachas') ||
         request.nextUrl.pathname.startsWith('/campeonatos') ||
         request.nextUrl.pathname.startsWith('/galeria') ||

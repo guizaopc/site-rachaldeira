@@ -1,5 +1,3 @@
-'use server';
-
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,14 +6,14 @@ import { AlertCircle, UserCheck, UserPlus, UserX, UserMinus } from 'lucide-react
 import { linkUserToMember, deleteUserAndProfile } from './actions';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { requireRole } from '@/lib/auth';
 
 export default async function AdminUsuariosPage() {
-    const supabase = createAdminClient();
+    // 1. Apenas admins (não confiar só no middleware: esta página usa a service role)
+    const auth = await requireRole(['admin']);
+    if (auth.error) redirect('/');
 
-    // 1. Check if the current user is an admin
-    // Note: We are in a server component with Admin client, so we need to check current session first
-    // But since this is /admin, middleware should already have checked.
-    // For extra safety, we could check here too, but we'll assume middleware is working.
+    const supabase = createAdminClient();
 
     // 2. Fetch all members
     const { data: members } = await supabase

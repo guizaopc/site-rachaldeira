@@ -35,3 +35,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scripts locais / dumps (podem conter chaves e dados pessoais)
+tmp_*
+*.log
+*_dump*.txt
+temp.html

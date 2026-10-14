@@ -4,8 +4,10 @@ import { sendAttendanceNotifications } from '@/lib/send-attendance-notifications
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+    const secret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    // Sem CRON_SECRET configurado a rota fica fechada (evita aceitar "Bearer undefined")
+    if (!secret || authHeader !== `Bearer ${secret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

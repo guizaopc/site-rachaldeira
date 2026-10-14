@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import MembersList from './members-list';
+import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
 export default async function IntegrantesPage() {
     const supabase = await createClient();
@@ -14,7 +15,7 @@ export default async function IntegrantesPage() {
 
     const { data: members } = await supabase
         .from('members')
-        .select('*')
+        .select(PUBLIC_MEMBER_COLUMNS)
         .or('is_active.eq.true,is_active.is.null')
         .order('name', { ascending: true });
 

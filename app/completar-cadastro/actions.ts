@@ -1,5 +1,6 @@
 'use server';
 
+import { safeImageExtension } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -75,7 +76,8 @@ export async function completarCadastroAction(formData: FormData) {
     // Handle photo upload
     if (photo && photo.size > 0) {
         try {
-            const fileExt = photo.name.split('.').pop();
+            const fileExt = safeImageExtension(photo);
+            if (!fileExt) throw new Error('Foto inválida (use JPG, PNG, WEBP ou GIF até 5 MB)');
             const fileName = `${memberData.id}_${Date.now()}.${fileExt}`;
 
             const { error: uploadError } = await adminClient.storage

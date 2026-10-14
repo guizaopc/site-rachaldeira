@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import StatsTable from './stats-table';
+import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
 export const revalidate = 0;
 
@@ -11,7 +12,7 @@ export default async function Stats2026Page() {
     // Buscar todos os membros
     const { data: members } = await supabase
         .from('members')
-        .select('*')
+        .select(PUBLIC_MEMBER_COLUMNS)
         .order('name');
 
     // Buscar TODOS os rachas de 2026 (para ser em tempo real) + Ajustes Globais
