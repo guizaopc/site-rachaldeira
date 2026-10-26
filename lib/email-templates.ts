@@ -115,3 +115,97 @@ export function attendanceEmailTemplate(
 </body>
 </html>`;
 }
+
+export type RankingEmailCategory = {
+    title: string;
+    valueLabel: string;
+    color: string;
+    rows: { name: string; value: number }[];
+};
+
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function rankingCategoryTable(category: RankingEmailCategory): string {
+    const medal = ['#eab308', '#94a3b8', '#f97316'];
+    const rows = category.rows.map((row, idx) => `
+                <tr>
+                  <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155;">
+                    <span style="display:inline-block;width:20px;height:20px;line-height:20px;border-radius:10px;text-align:center;font-size:10px;font-weight:bold;margin-right:6px;background-color:${medal[idx] || '#f1f5f9'};color:${idx < 3 ? '#ffffff' : '#94a3b8'};">${idx + 1}</span>${escapeHtml(row.name)}
+                  </td>
+                  <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:bold;color:#0f172a;text-align:right;">${row.value}</td>
+                </tr>`).join('');
+
+    return `
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                <tr>
+                  <td colspan="2" style="padding:10px;border-top:4px solid ${category.color};font-size:14px;font-weight:bold;color:#0f172a;">${category.title}</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 10px;background-color:#f8fafc;font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;">Jogador</td>
+                  <td style="padding:4px 10px;background-color:#f8fafc;font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;text-align:right;">${category.valueLabel}</td>
+                </tr>${rows || `
+                <tr><td colspan="2" style="padding:10px;font-size:12px;color:#94a3b8;">Nenhum dado</td></tr>`}
+              </table>`;
+}
+
+export function rankingReportEmailTemplate(
+    dateLabel: string,
+    closedRachas: number,
+    categories: RankingEmailCategory[],
+    siteUrl: string
+): string {
+    // Duas listas por linha, como no "Modo Print" da página /rank
+    const pairs: string[] = [];
+    for (let i = 0; i < categories.length; i += 2) {
+        const [left, right] = categories.slice(i, i + 2);
+        pairs.push(`
+          <tr>
+            <td width="50%" style="width:50%;padding:0 6px 12px 0;vertical-align:top;">${rankingCategoryTable(left)}</td>
+            <td width="50%" style="width:50%;padding:0 0 12px 6px;vertical-align:top;">${right ? rankingCategoryTable(right) : ''}</td>
+          </tr>`);
+    }
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ranking Geral - Rachaldeira</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:24px 8px;">
+    <tr>
+      <td align="center">
+        <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;">
+          <tr>
+            <td style="background-color:#093a9f;border-radius:12px 12px 0 0;padding:22px 24px;text-align:center;">
+              <img src="${siteUrl}/logo-new.png" alt="Rachaldeira" width="64" height="64" style="display:block;margin:0 auto 10px;border-radius:12px;object-fit:contain;" />
+              <p style="color:#ffffff;font-size:20px;font-weight:bold;margin:0;">Ranking Geral</p>
+              <p style="color:#bfdbfe;font-size:13px;margin:6px 0 0;">Situação em ${dateLabel} · ${closedRachas} rachas encerrados</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 0 0;">
+              <table width="100%" cellpadding="0" cellspacing="0">${pairs.join('')}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:8px 0 4px;">
+              <a href="${siteUrl}/rank" style="display:inline-block;background-color:#093a9f;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:bold;">Ver ranking no site</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 0 0;">
+              <p style="color:#94a3b8;font-size:11px;text-align:center;margin:0;">Email automático enviado toda segunda-feira com o ranking acumulado.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
