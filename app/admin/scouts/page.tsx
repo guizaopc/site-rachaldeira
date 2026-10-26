@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -68,21 +69,21 @@ export default function EdicaoScoutsPage() {
             const closedRachaIds = allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').map(r => r.id) || [];
 
             const { data: allRachaScouts, error: scoutsError } = allRachaIds.length > 0
-                ? await supabase.from('racha_scouts').select('*').in('racha_id', allRachaIds)
+                ? await fetchAllRows(() => supabase.from('racha_scouts').select('*').in('racha_id', allRachaIds))
                 : { data: [], error: null };
             if (scoutsError) console.error('Erro racha_scouts:', scoutsError);
 
             // match_player_stats pode não existir — ignorar silenciosamente
             let champScouts: any[] = [];
             try {
-                const { data: champData, error: champError } = await supabase
+                const { data: champData, error: champError } = await fetchAllRows(() => supabase
                     .from('match_player_stats')
-                    .select('member_id, goals, assists, difficult_saves');
+                    .select('member_id, goals, assists, difficult_saves'));
                 if (!champError) champScouts = champData || [];
             } catch (_) { /* tabela não existe, ignorar */ }
 
             const { data: attendance, error: attendanceError } = closedRachaIds.length > 0
-                ? await supabase.from('racha_attendance').select('member_id, racha_id').eq('status', 'in').in('racha_id', closedRachaIds)
+                ? await fetchAllRows(() => supabase.from('racha_attendance').select('member_id, racha_id').eq('status', 'in').in('racha_id', closedRachaIds))
                 : { data: [], error: null };
             if (attendanceError) console.error('Erro attendance:', attendanceError);
 
