@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import MembersList from './members-list';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
@@ -20,21 +21,21 @@ export default async function IntegrantesPage() {
         .order('name', { ascending: true });
 
     // Stats de rachas
-    const { data: rachaScouts } = await supabase
+    const { data: rachaScouts } = await fetchAllRows(() => supabase
         .from('racha_scouts')
-        .select('member_id, goals, assists, difficult_saves, warnings, attendance_count, top1_count, top2_count, top3_count, sheriff_count, racha_id');
+        .select('member_id, goals, assists, difficult_saves, warnings, attendance_count, top1_count, top2_count, top3_count, sheriff_count, racha_id'));
 
     // Stats de campeonatos
-    const { data: matchStats } = await supabase
+    const { data: matchStats } = await fetchAllRows(() => supabase
         .from('match_player_stats')
-        .select('member_id, goals, assists, difficult_saves, warnings');
+        .select('member_id, goals, assists, difficult_saves, warnings'));
 
     // Presenças em rachas fechados
-    const { data: attendance } = await supabase
+    const { data: attendance } = await fetchAllRows(() => supabase
         .from('racha_attendance')
         .select('member_id, racha_id, rachas!inner(status, id)')
         .eq('status', 'in')
-        .eq('rachas.status', 'closed');
+        .eq('rachas.status', 'closed'));
 
     // Destaques dos rachas fechados
     const { data: closedRachas } = await supabase

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Trophy, Medal } from 'lucide-react';
@@ -119,16 +120,16 @@ export default async function RankingPage() {
     const allRachaIds = allRachas?.map(r => r.id) || [];
 
     // Buscar scouts de rachas (todos)
-    const { data: rachaScouts } = await supabase
+    const { data: rachaScouts } = await fetchAllRows(() => supabase
         .from('racha_scouts')
         .select('*')
-        .in('racha_id', allRachaIds);
+        .in('racha_id', allRachaIds));
 
-    const { data: attendance } = await supabase
+    const { data: attendance } = await fetchAllRows(() => supabase
         .from('racha_attendance')
         .select('*')
         .eq('status', 'in')
-        .in('racha_id', allRachaIds);
+        .in('racha_id', allRachaIds));
 
     // Buscar último racha fechado REAL (ignorar Sistema/Manual) para destaques semanais
     const { data: lastRacha } = await supabase
