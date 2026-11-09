@@ -253,7 +253,14 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                             📅 Agenda de Jogos
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {matches.map(match => (
+                            {[...matches].sort((a, b) => {
+                                const ta = a.scheduled_time || '';
+                                const tb = b.scheduled_time || '';
+                                if (ta && tb && ta !== tb) return ta.localeCompare(tb);
+                                if (ta && !tb) return -1;
+                                if (!ta && tb) return 1;
+                                return (a.round || 0) - (b.round || 0);
+                            }).map(match => (
                                 <Link key={match.id} href={`/campeonatos/${campId}/partida/${match.id}`}>
                                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group flex items-center justify-between">
                                         <div className="flex-1 flex items-center justify-end gap-3 pr-4">
@@ -273,6 +280,11 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] font-bold text-gray-400 uppercase">VS</span>
+                                            )}
+                                            {match.scheduled_time && (
+                                                <span className="text-xs font-black text-blue-600 mt-1">
+                                                    🕒 {String(match.scheduled_time).slice(0, 5)}
+                                                </span>
                                             )}
                                             <span className="text-[9px] text-gray-400 font-bold mt-1 uppercase">
                                                 {match.bracket_position === 'final-1' ? 'Final' :
