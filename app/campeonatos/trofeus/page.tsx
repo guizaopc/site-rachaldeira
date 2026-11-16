@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { Trophy, Star, Target, Shield, Utensils, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getChampionTeamId } from '@/lib/championship-champion';
 
 function AwardBadge({ emoji, label, member, bg, border, labelColor }: {
     emoji: string;
@@ -111,33 +112,9 @@ export default async function TrofeusPage() {
 
             if (!teams) continue;
 
-            // Calcular pontuação
-            const standings = teams.map((team: any) => {
-                const teamMatches = matches.filter((m: any) =>
-                    m.team_a_id === team.id || m.team_b_id === team.id
-                );
-
-                let points = 0, wins = 0, goalsFor = 0, goalsAgainst = 0;
-                teamMatches.forEach((match: any) => {
-                    const isA = match.team_a_id === team.id;
-                    const myGoals = isA ? match.score_a : match.score_b;
-                    const theirGoals = isA ? match.score_b : match.score_a;
-                    goalsFor += myGoals ?? 0;
-                    goalsAgainst += theirGoals ?? 0;
-                    if (myGoals > theirGoals) { points += 3; wins++; }
-                    else if (myGoals === theirGoals) points += 1;
-                });
-
-                return { ...team, points, wins, goalDiff: goalsFor - goalsAgainst };
-            });
-
-            standings.sort((a: any, b: any) =>
-                b.points - a.points || b.wins - a.wins || b.goalDiff - a.goalDiff
-            );
-
-            if (standings.length > 0) {
-                championsMap[camp.id] = standings[0];
-            }
+            const winnerId = getChampionTeamId(matches as any, teams.map((t: any) => t.id));
+            const winner = teams.find((t: any) => t.id === winnerId);
+            if (winner) championsMap[camp.id] = winner;
         }
     }
 

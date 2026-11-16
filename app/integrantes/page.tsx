@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import MembersList from './members-list';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
+import { getChampionTeamId } from '@/lib/championship-champion';
 
 export default async function IntegrantesPage() {
     const supabase = await createClient();
@@ -53,7 +54,7 @@ export default async function IntegrantesPage() {
     // Campeonatos concluídos com membros do time campeão
     const { data: completedChamps } = await supabase
         .from('championships')
-        .select('id')
+        .select('*')
         .eq('status', 'completed');
 
     // Mapa de vitórias de campeonato por member_id
@@ -64,7 +65,7 @@ export default async function IntegrantesPage() {
             // Buscar times e partidas para calcular standings
             const [{ data: champMatches }, { data: teams }] = await Promise.all([
                 supabase.from('championship_matches')
-                    .select('team_a_id, team_b_id, score_a, score_b')
+                    .select('team_a_id, team_b_id, score_a, score_b, status, bracket_position, has_draw_advantage, penalty_winner_id')
                     .eq('championship_id', champ.id)
                     .eq('status', 'completed'),
                 supabase.from('teams')
@@ -74,26 +75,11 @@ export default async function IntegrantesPage() {
 
             if (!champMatches || !teams || teams.length === 0) continue;
 
-            // Calcular pontuação por time
-            const standings = teams.map((team: any) => {
-                let pts = 0;
-                for (const m of champMatches) {
-                    const isA = m.team_a_id === team.id;
-                    const isB = m.team_b_id === team.id;
-                    if (!isA && !isB) continue;
-                    const mine = isA ? m.score_a : m.score_b;
-                    const theirs = isA ? m.score_b : m.score_a;
-                    if (mine > theirs) pts += 3;
-                    else if (mine === theirs) pts += 1;
-                }
-                return { id: team.id, pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
-            });
-
-            standings.sort((a: any, b: any) => b.pts - a.pts);
-            const winner = standings[0];
+            const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+            const winner = teams.find((t: any) => t.id === winnerId);
             if (winner) {
-                for (const memberId of winner.members) {
-                    champWinsMap[memberId] = (champWinsMap[memberId] || 0) + 1;
+                for (const tm of (winner.team_members || []) as any[]) {
+                    champWinsMap[tm.member_id] = (champWinsMap[tm.member_id] || 0) + 1;
                 }
             }
         }
