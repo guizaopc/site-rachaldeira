@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ArrowLeft, User, Trophy, Activity, Shield, Star, Medal, Crown, Award } from 'lucide-react';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
+import { getChampionTeamId } from '@/lib/championship-champion';
 
 export const revalidate = 0;
 
@@ -96,7 +97,7 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
         for (const champ of completedChamps) {
             const [{ data: champMatches }, { data: teams }] = await Promise.all([
                 supabase.from('championship_matches')
-                    .select('team_a_id, team_b_id, score_a, score_b')
+                    .select('team_a_id, team_b_id, score_a, score_b, status, bracket_position, has_draw_advantage, penalty_winner_id')
                     .eq('championship_id', champ.id)
                     .eq('status', 'completed'),
                 supabase.from('teams')
@@ -105,22 +106,9 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
             ]);
             if (!champMatches || !teams || teams.length === 0) continue;
 
-            const standings = teams.map((team: any) => {
-                let pts = 0;
-                for (const m of champMatches) {
-                    const isA = m.team_a_id === team.id;
-                    const isB = m.team_b_id === team.id;
-                    if (!isA && !isB) continue;
-                    const mine   = isA ? m.score_a : m.score_b;
-                    const theirs = isA ? m.score_b : m.score_a;
-                    if (mine > theirs) pts += 3;
-                    else if (mine === theirs) pts += 1;
-                }
-                return { pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
-            });
-            standings.sort((a: any, b: any) => b.pts - a.pts);
-            const winner = standings[0];
-            if (winner?.members.includes(id)) championships += 1;
+            const winnerId = getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+            const winner = teams.find((t: any) => t.id === winnerId);
+            if (winner && (winner.team_members || []).some((tm: any) => tm.member_id === id)) championships += 1;
         }
     }
 
