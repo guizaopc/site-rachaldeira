@@ -89,7 +89,7 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
     // Títulos de campeonato (mesma lógica da página de integrantes)
     const { data: completedChamps } = await supabase
         .from('championships')
-        .select('id')
+        .select('*')
         .eq('status', 'completed');
 
     let championships = 0;
@@ -106,7 +106,7 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
             ]);
             if (!champMatches || !teams || teams.length === 0) continue;
 
-            const winnerId = getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+            const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
             const winner = teams.find((t: any) => t.id === winnerId);
             if (winner && (winner.team_members || []).some((tm: any) => tm.member_id === id)) championships += 1;
         }

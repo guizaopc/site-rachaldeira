@@ -41,6 +41,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
         paredao_id: '',
         garcom_id: '',
         artilheiro_id: '',
+        champion_team_id: '',
     });
 
     const [manualMatchForm, setManualMatchForm] = useState({
@@ -69,6 +70,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 paredao_id: champData.paredao_id || 'none',
                 garcom_id: champData.garcom_id || 'none',
                 artilheiro_id: champData.artilheiro_id || 'none',
+                champion_team_id: champData.champion_team_id || 'none',
             });
         }
 
@@ -118,6 +120,10 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 artilheiro_id: highlights.artilheiro_id === 'none' ? null : highlights.artilheiro_id,
             }).eq('id', campId);
             if (error) throw error;
+            const { error: champError } = await supabase.from('championships').update({
+                champion_team_id: highlights.champion_team_id === 'none' ? null : highlights.champion_team_id,
+            }).eq('id', campId);
+            if (champError) throw new Error('Destaques salvos, mas não foi possível salvar o campeão: ' + champError.message);
             alert('Destaques salvos!');
             loadData();
         } catch (err: any) {
@@ -532,6 +538,20 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 {activeTab === 'destaques' && (
                     <div className="space-y-6">
                         <p className="text-sm text-gray-500">Selecione os melhores jogadores do campeonato para o hall de troféus.</p>
+
+                        <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4 space-y-2">
+                            <div>
+                                <p className="font-bold text-gray-900">🏆 Time Campeão</p>
+                                <p className="text-xs text-gray-500">Deixe em &quot;Automático&quot; para usar o vencedor da final (ou o 1º da tabela, se não houver final). Escolha um time só para casos especiais, como W.O.</p>
+                            </div>
+                            <Select value={highlights.champion_team_id} onValueChange={v => setHighlights({ ...highlights, champion_team_id: v })}>
+                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">— Automático —</SelectItem>
+                                    {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <AwardSelect label="👑 Craque" sublabel="Melhor jogador" value={highlights.craque_id} onChange={v => setHighlights({ ...highlights, craque_id: v })} members={members} />

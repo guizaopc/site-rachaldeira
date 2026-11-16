@@ -147,7 +147,7 @@ export default function UserProfilePage() {
 
         // Títulos de campeonato
         let championships = 0;
-        const { data: completedChamps } = await supabase.from('championships').select('id').eq('status', 'completed');
+        const { data: completedChamps } = await supabase.from('championships').select('*').eq('status', 'completed');
         if (completedChamps && completedChamps.length > 0) {
             for (const champ of completedChamps) {
                 const [{ data: champMatches }, { data: teams }] = await Promise.all([
@@ -155,7 +155,7 @@ export default function UserProfilePage() {
                     supabase.from('teams').select('id, team_members(member_id)').eq('championship_id', champ.id),
                 ]);
                 if (!champMatches || !teams || teams.length === 0) continue;
-                const winnerId = getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+                const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
                 const winner = teams.find((t: any) => t.id === winnerId);
                 if (winner && (winner.team_members || []).some((tm: any) => tm.member_id === memberId)) championships += 1;
             }

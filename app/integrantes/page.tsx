@@ -54,7 +54,7 @@ export default async function IntegrantesPage() {
     // Campeonatos concluídos com membros do time campeão
     const { data: completedChamps } = await supabase
         .from('championships')
-        .select('id')
+        .select('*')
         .eq('status', 'completed');
 
     // Mapa de vitórias de campeonato por member_id
@@ -75,7 +75,7 @@ export default async function IntegrantesPage() {
 
             if (!champMatches || !teams || teams.length === 0) continue;
 
-            const winnerId = getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+            const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
             const winner = teams.find((t: any) => t.id === winnerId);
             if (winner) {
                 for (const tm of (winner.team_members || []) as any[]) {
