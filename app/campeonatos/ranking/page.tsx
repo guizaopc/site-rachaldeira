@@ -53,7 +53,7 @@ export default async function ChampionshipRankingPage() {
     ]);
 
     type Row = Omit<ChampionshipRankingRow, 'id' | 'name' | 'photo_url' | 'position' | 'championTeams'>;
-    const empty = (): Row => ({ goals: 0, assists: 0, saves: 0, trophies: 0, craque: 0, paredao: 0, xerifao: 0, garcom: 0 });
+    const empty = (): Row => ({ goals: 0, assists: 0, saves: 0, trophies: 0, craque: 0, artilheiro: 0, paredao: 0, xerifao: 0, garcom: 0 });
     const stats: Record<string, Row> = {};
     const get = (id: string) => (stats[id] ??= empty());
 
@@ -68,7 +68,7 @@ export default async function ChampionshipRankingPage() {
     // Prêmios individuais
     // (cada prêmio pode ter mais de um vencedor por campeonato)
     for (const a of (awards || []) as { award: string; member_id: string }[]) {
-        if (a.award === 'craque' || a.award === 'paredao' || a.award === 'xerifao' || a.award === 'garcom') {
+        if (a.award === 'craque' || a.award === 'artilheiro' || a.award === 'paredao' || a.award === 'xerifao' || a.award === 'garcom') {
             get(a.member_id)[a.award] += 1;
         }
     }
@@ -120,7 +120,7 @@ export default async function ChampionshipRankingPage() {
             championTeams: championTeamsByMember[m.id] || [],
             ...stats[m.id],
         }))
-        .filter(r => r.goals + r.assists + r.saves + r.trophies + r.craque + r.paredao + r.xerifao + r.garcom > 0);
+        .filter(r => r.goals + r.assists + r.saves + r.trophies + r.craque + r.artilheiro + r.paredao + r.xerifao + r.garcom > 0);
 
     const totals = rows.reduce(
         (acc, r) => ({ goals: acc.goals + r.goals, assists: acc.assists + r.assists, saves: acc.saves + r.saves }),

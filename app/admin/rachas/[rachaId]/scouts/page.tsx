@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { SCOUT_FIELDS, ScoutField, initials, matchMemberByName, normalizeName } from '@/lib/scouts';
 
@@ -214,15 +215,12 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
     };
 
     // ---------- destaques ----------
-    const toggleHighlight = (cat: HighlightKey, memberId: string) => {
+    // Cada destaque tem 3 vagas (principal, extra, extra 2). 'none' limpa a vaga.
+    const setHighlightSlot = (cat: HighlightKey, slot: number, memberId: string) => {
         setHighlights(prev => {
-            const list = prev[cat];
-            if (list.includes(memberId)) return { ...prev, [cat]: list.filter(id => id !== memberId) };
-            if (list.length >= 3) {
-                toast.warning('Máximo de 3 jogadores por destaque');
-                return prev;
-            }
-            return { ...prev, [cat]: [...list, memberId] };
+            const slots = [0, 1, 2].map(i => prev[cat][i] || '');
+            slots[slot] = memberId === 'none' ? '' : memberId;
+            return { ...prev, [cat]: slots.filter(Boolean) };
         });
     };
 
@@ -548,51 +546,53 @@ export default function ScoutsPage({ params }: { params: Promise<{ rachaId: stri
                     <Trophy className="text-yellow-500" size={22} />
                     <div>
                         <h2 className="text-lg font-bold text-slate-900">Destaques da partida</h2>
-                        <p className="text-xs text-slate-500">Toque para escolher até 3 por categoria. Os números ao lado do nome são gols/assistências de hoje.</p>
+                        <p className="text-xs text-slate-500">Escolha o destaque principal e, se houver empate, até 2 extras.</p>
                     </div>
                 </div>
-                <div className="grid gap-5 lg:grid-cols-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {HIGHLIGHTS.map(cat => {
                         const selected = highlights[cat.key];
-                        // presentes + quem já estava marcado (mesmo que não esteja na lista)
-                        const pool: { id: string; name: string; goals?: number; assists?: number }[] = [
-                            ...scouts.map(s => ({ id: s.member_id, name: s.name, goals: s.goals, assists: s.assists })),
-                            ...selected.filter(id => !scouts.some(s => s.member_id === id))
-                                .map(id => ({ id, name: memberById.get(id)?.name || 'Desconhecido' })),
-                        ];
+                        const presentIds = new Set(scouts.map(s => s.member_id));
+                        const others = members.filter(m => !presentIds.has(m.id));
                         return (
-                            <div key={cat.key} className="rounded-2xl border border-slate-200 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-bold text-slate-800">{cat.emoji} {cat.label}</h3>
-                                    <span className="text-xs font-semibold text-slate-400">{selected.length}/3</span>
-                                </div>
-                                {pool.length === 0 ? (
-                                    <p className="text-sm text-slate-400">Adicione jogadores primeiro.</p>
-                                ) : (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {pool.map(p => {
-                                            const on = selected.includes(p.id);
-                                            return (
-                                                <button
-                                                    key={p.id}
-                                                    onClick={() => toggleHighlight(cat.key, p.id)}
-                                                    className={cn(
-                                                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
-                                                        on ? cn(cat.ring, 'shadow-sm') : 'border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-900',
-                                                    )}
-                                                >
-                                                    {on && <Check size={14} />}
-                                                    {p.name}
-                                                    {(p.goals || p.assists) ? (
-                                                        <span className={cn('text-[11px] tabular-nums', on ? 'opacity-70' : 'text-slate-400')}>
-                                                            {p.goals || 0}G {p.assists || 0}A
-                                                        </span>
-                                                    ) : null}
-                                                </button>
-                                            );
-                                        })}
+                            <div key={cat.key} className="space-y-4">
+                                {[0, 1, 2].map(slot => (
+                                    <div key={slot} className="space-y-2">
+                                        <label className={cn('text-sm leading-none', slot === 0 ? 'font-semibold text-slate-800' : 'font-medium italic text-slate-400')}>
+                                            {slot === 0 ? `${cat.emoji} ${cat.label}` : `+ ${cat.label} Extra${slot === 2 ? ' 2' : ''}`}
+                                        </label>
+                                        <Select
+                                            value={selected[slot] || 'none'}
+                                            onValueChange={v => setHighlightSlot(cat.key, slot, v)}
+                                            disabled={slot > selected.length}
+                                        >
+                                            <SelectTrigger className={slot > 0 ? 'border-dashed' : undefined}>
+                                                <SelectValue placeholder="Selecione..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                {scouts.length > 0 && (
+                                                    <SelectGroup>
+                                                        <SelectLabel>Presentes</SelectLabel>
+                                                        {scouts.map(s => (
+                                                            <SelectItem key={s.member_id} value={s.member_id}>
+                                                                {s.name}{(s.goals || s.assists) ? ` · ${s.goals || 0}G ${s.assists || 0}A` : ''}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                )}
+                                                {others.length > 0 && (
+                                                    <SelectGroup>
+                                                        <SelectLabel>Outros integrantes</SelectLabel>
+                                                        {others.map(m => (
+                                                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                )}
+                                ))}
                             </div>
                         );
                     })}

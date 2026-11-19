@@ -23,6 +23,7 @@ export interface ChampionshipRankingRow {
     saves: number;
     trophies: number;
     craque: number;
+    artilheiro: number;
     paredao: number;
     xerifao: number;
     garcom: number;
@@ -55,13 +56,14 @@ const COLUMNS: { key: SortKey; label: string; emoji: string; title: string; awar
     { key: 'saves', label: 'Defesas', emoji: '🧤', title: 'Defesas difíceis em campeonatos' },
     { key: 'trophies', label: 'Troféus', emoji: '🏆', title: 'Campeonatos vencidos', award: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
     { key: 'craque', label: 'Craque', emoji: '👑', title: 'Vezes eleito Craque do campeonato', award: 'bg-amber-100 text-amber-800 border-amber-200' },
+    { key: 'artilheiro', label: 'Artilheiro', emoji: '🥇', title: 'Vezes artilheiro do campeonato', award: 'bg-green-100 text-green-800 border-green-200' },
     { key: 'paredao', label: 'Paredão', emoji: '🧱', title: 'Vezes eleito Paredão do campeonato', award: 'bg-blue-100 text-blue-800 border-blue-200' },
     { key: 'xerifao', label: 'Xerife', emoji: '👮', title: 'Vezes eleito Xerifão do campeonato', award: 'bg-red-100 text-red-800 border-red-200' },
     { key: 'garcom', label: 'Garçom', emoji: '🍽️', title: 'Vezes eleito Garçom do campeonato', award: 'bg-purple-100 text-purple-800 border-purple-200' },
 ];
 
 // Desempate padrão: títulos > prêmios > números
-const TIEBREAK: SortKey[] = ['trophies', 'craque', 'goals', 'assists', 'saves', 'paredao', 'garcom', 'xerifao'];
+const TIEBREAK: SortKey[] = ['trophies', 'craque', 'artilheiro', 'goals', 'assists', 'saves', 'paredao', 'garcom', 'xerifao'];
 
 function initials(name: string) {
     const parts = (name || '?').trim().split(/\s+/);
@@ -117,7 +119,7 @@ export default function ChampionshipRankingTable({ rows }: { rows: ChampionshipR
             <div className="md:hidden">
                 <div className="px-4 pt-4 pb-3 border-b border-gray-100">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ordenar por</p>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1.5">
                         {COLUMNS.map(c => {
                             const active = c.key === sortKey;
                             return (
@@ -163,7 +165,7 @@ export default function ChampionshipRankingTable({ rows }: { rows: ChampionshipR
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-1 mt-3">
+                                <div className="grid grid-cols-3 gap-1 mt-3">
                                     {COLUMNS.map(c => {
                                         const v = p[c.key];
                                         return (
@@ -202,7 +204,7 @@ export default function ChampionshipRankingTable({ rows }: { rows: ChampionshipR
 
             {/* Computador: tabela completa */}
             <div className="hidden md:block overflow-x-auto">
-                <table className="w-full min-w-[960px] text-sm">
+                <table className="w-full min-w-[1040px] text-sm">
                     <thead>
                         <tr className="bg-gray-50 text-gray-500">
                             <th className="w-12 py-3 text-center font-bold">#</th>
