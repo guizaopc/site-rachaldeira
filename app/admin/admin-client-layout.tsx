@@ -64,7 +64,7 @@ export default function AdminClientLayout({
             <aside className={`
                 fixed inset-y-0 left-0 z-[70] w-64 bg-slate-950 text-white flex flex-col border-r border-slate-800 transition-transform duration-300 transform
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen flex-shrink-0
+                lg:translate-x-0 lg:h-screen flex-shrink-0
             `}>
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between lg:block">
                     <h1 className="text-xl font-bold flex items-center gap-2">
@@ -115,7 +115,7 @@ export default function AdminClientLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-4 md:p-8 w-full lg:mt-0 mt-2 overflow-x-hidden">
+            <main className="flex-1 min-w-0 p-4 md:p-8 lg:ml-64 lg:mt-0 mt-2 overflow-x-hidden">
                 <div className="max-w-[1400px] mx-auto">
                     {children}
                 </div>

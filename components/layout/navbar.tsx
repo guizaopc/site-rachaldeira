@@ -42,7 +42,7 @@ export function Navbar({ user, profile, member }: NavbarProps) {
     ];
 
     return (
-        <header className="sticky top-0 z-50 px-3 sm:px-4 pt-8 pb-1">
+        <header className={`sticky top-0 z-50 px-3 sm:px-4 pt-8 pb-1 ${pathname.startsWith('/admin') ? 'bg-gray-100 lg:pl-[17rem]' : ''}`}>
             <nav className="relative max-w-6xl mx-auto rounded-full bg-[#093a9f]/95 backdrop-blur-md text-white shadow-lg shadow-blue-950/25 ring-1 ring-white/10 overflow-hidden">
                 <div className="flex items-center justify-between h-16 pl-4 pr-2.5 sm:pl-6 sm:pr-3">
                     {/* Logo */}
