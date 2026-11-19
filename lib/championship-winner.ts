@@ -1,8 +1,9 @@
 // Regra única para descobrir o time campeão de um campeonato concluído.
 // 1. Campeão definido manualmente (championships.champion_team_id)
-// 2. Vencedor da final ('final-1'), inclusive nos pênaltis
+// 2. Vencedor da final ('final-1'): placar, vantagem do empate ou pênaltis
 // 3. Sem final decidida (pontos corridos): líder da classificação
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getChampionTeamId } from './championship-champion';
 
 export interface ChampionMatch {
     championship_id: string;
@@ -14,10 +15,11 @@ export interface ChampionMatch {
     penalties_score_a?: number | null;
     penalties_score_b?: number | null;
     penalty_winner_id?: string | null;
+    has_draw_advantage?: boolean | null;
 }
 
 export const CHAMPION_MATCH_COLUMNS =
-    'championship_id, bracket_position, team_a_id, team_b_id, score_a, score_b, penalties_score_a, penalties_score_b, penalty_winner_id';
+    'championship_id, bracket_position, team_a_id, team_b_id, score_a, score_b, penalties_score_a, penalties_score_b, penalty_winner_id, has_draw_advantage';
 
 /** `matches` devem ser só as partidas concluídas desse campeonato. */
 export function pickChampionTeamId(
@@ -27,31 +29,15 @@ export function pickChampionTeamId(
 ): string | null {
     if (manualChampionId) return manualChampionId;
 
+    // Final empatada sem penalty_winner_id salvo: decide pelo placar dos pênaltis
     const final = matches.find(m => m.bracket_position === 'final-1');
-    if (final) {
-        const a = final.score_a ?? 0, b = final.score_b ?? 0;
-        if (a !== b) return a > b ? final.team_a_id : final.team_b_id;
-        if (final.penalty_winner_id) return final.penalty_winner_id;
+    if (final && !final.penalty_winner_id && !final.has_draw_advantage && (final.score_a ?? 0) === (final.score_b ?? 0)) {
         const pa = final.penalties_score_a ?? 0, pb = final.penalties_score_b ?? 0;
         if (pa !== pb) return pa > pb ? final.team_a_id : final.team_b_id;
     }
 
     if (matches.length === 0 || teamIds.length === 0) return null;
-    const standings = teamIds.map(id => {
-        let points = 0, wins = 0, gf = 0, ga = 0;
-        for (const m of matches) {
-            const isA = m.team_a_id === id;
-            if (!isA && m.team_b_id !== id) continue;
-            const mine = (isA ? m.score_a : m.score_b) ?? 0;
-            const theirs = (isA ? m.score_b : m.score_a) ?? 0;
-            gf += mine; ga += theirs;
-            if (mine > theirs) { points += 3; wins++; }
-            else if (mine === theirs) points += 1;
-        }
-        return { id, points, wins, gd: gf - ga };
-    });
-    standings.sort((x, y) => y.points - x.points || y.wins - x.wins || y.gd - x.gd);
-    return standings[0]?.id ?? null;
+    return getChampionTeamId(matches, teamIds);
 }
 
 export interface ChampionTeamInfo {

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { CHAMPION_MATCH_COLUMNS, pickChampionTeamId, type ChampionMatch } from '@/lib/championship-winner';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
@@ -27,9 +28,10 @@ export default async function ChampionshipRankingPage() {
             .from('members')
             .select('id, name, photo_url, position')
             .order('name'),
-        supabase
+        // Mais de 1000 linhas: buscar paginado
+        fetchAllRows<{ member_id: string; goals: number | null; assists: number | null; difficult_saves: number | null }>(() => supabase
             .from('match_player_stats')
-            .select('member_id, goals, assists, difficult_saves'),
+            .select('id, member_id, goals, assists, difficult_saves')),
         supabase
             .from('championships')
             .select('id, name, start_date, logo_url, status, champion_team_id')

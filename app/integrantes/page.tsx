@@ -2,11 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import MembersList from './members-list';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
-<<<<<<< HEAD
 import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winner';
-=======
-import { getChampionTeamId } from '@/lib/championship-champion';
->>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
 export default async function IntegrantesPage() {
     const supabase = await createClient();
@@ -55,44 +51,8 @@ export default async function IntegrantesPage() {
         .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)');
     const adjustmentIds = new Set((allManualRachas || []).map(r => r.id));
 
-<<<<<<< HEAD
     // Vitórias de campeonato por member_id (manual > final > classificação)
     const champWinsMap = countTitlesByMember(await loadChampionTeams(supabase));
-=======
-    // Campeonatos concluídos com membros do time campeão
-    const { data: completedChamps } = await supabase
-        .from('championships')
-        .select('*')
-        .eq('status', 'completed');
-
-    // Mapa de vitórias de campeonato por member_id
-    const champWinsMap: Record<string, number> = {};
-
-    if (completedChamps && completedChamps.length > 0) {
-        for (const champ of completedChamps) {
-            // Buscar times e partidas para calcular standings
-            const [{ data: champMatches }, { data: teams }] = await Promise.all([
-                supabase.from('championship_matches')
-                    .select('team_a_id, team_b_id, score_a, score_b, status, bracket_position, has_draw_advantage, penalty_winner_id')
-                    .eq('championship_id', champ.id)
-                    .eq('status', 'completed'),
-                supabase.from('teams')
-                    .select('id, team_members(member_id)')
-                    .eq('championship_id', champ.id),
-            ]);
-
-            if (!champMatches || !teams || teams.length === 0) continue;
-
-            const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
-            const winner = teams.find((t: any) => t.id === winnerId);
-            if (winner) {
-                for (const tm of (winner.team_members || []) as any[]) {
-                    champWinsMap[tm.member_id] = (champWinsMap[tm.member_id] || 0) + 1;
-                }
-            }
-        }
-    }
->>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
     // Montar mapa de stats
     const statsMap: Record<string, {

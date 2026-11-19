@@ -4,12 +4,8 @@ import Image from 'next/image';
 import { Trophy, Star, Target, Shield, Utensils, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-<<<<<<< HEAD
 import { AWARD_TYPES, AWARDS_SELECT, groupAwards, type AwardType } from '@/lib/championship-awards';
 import { loadChampionTeams } from '@/lib/championship-winner';
-=======
-import { getChampionTeamId } from '@/lib/championship-champion';
->>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
 function AwardBadge({ emoji, label, member, bg, border, labelColor }: {
     emoji: string;
@@ -96,7 +92,6 @@ export default async function TrofeusPage() {
     const totalAwards = Object.values(awardsByChamp).reduce(
         (acc, g) => acc + Object.values(g).reduce((n, list) => n + list.length, 0), 0);
 
-<<<<<<< HEAD
     const badgeStyle: Record<AwardType, { bg: string; border: string; labelColor: string }> = {
         craque: { bg: 'bg-yellow-50', border: 'border-yellow-100', labelColor: 'text-yellow-700' },
         artilheiro: { bg: 'bg-green-50', border: 'border-green-100', labelColor: 'text-green-700' },
@@ -104,24 +99,6 @@ export default async function TrofeusPage() {
         garcom: { bg: 'bg-purple-50', border: 'border-purple-100', labelColor: 'text-purple-700' },
         xerifao: { bg: 'bg-red-50', border: 'border-red-100', labelColor: 'text-red-700' },
     };
-=======
-            const { data: teams } = await supabase
-                .from('teams')
-                .select('id, name, logo_url, team_members(members(id, name))')
-                .eq('championship_id', camp.id);
-
-            if (!teams) continue;
-
-            const winnerId = getChampionTeamId(matches as any, teams.map((t: any) => t.id));
-            const winner = teams.find((t: any) => t.id === winnerId);
-            if (winner) championsMap[camp.id] = winner;
-        }
-    }
-
-    const totalAwards = championships?.reduce((acc, c) => {
-        return acc + [c.craque, c.artilheiro, c.paredao, c.garcom, c.xerifao].filter(Boolean).length;
-    }, 0) ?? 0;
->>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
     return (
         <main className="min-h-screen bg-gray-50">
