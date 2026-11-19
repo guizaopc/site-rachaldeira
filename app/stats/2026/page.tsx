@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import StatsTable from './stats-table';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
 
@@ -24,18 +25,18 @@ export default async function Stats2026Page() {
     const allRachaIds = allRachas?.map(r => r.id) || [];
 
     // Buscar scouts de todos os rachas encontrados
-    const { data: rachaScouts } = await supabase
+    const { data: rachaScouts } = await fetchAllRows(() => supabase
         .from('racha_scouts')
         .select('*')
-        .in('racha_id', allRachaIds);
+        .in('racha_id', allRachaIds));
 
     // Buscar confirmações de presença (apenas de rachas normais do ano)
     const normalRachaIds = allRachas?.filter(r => r.location !== 'Sistema (Manual)').map(r => r.id) || [];
-    const { data: attendance } = await supabase
+    const { data: attendance } = await fetchAllRows(() => supabase
         .from('racha_attendance')
         .select('*')
         .eq('status', 'in')
-        .in('racha_id', normalRachaIds);
+        .in('racha_id', normalRachaIds));
 
     // Agregar estatísticas
     const stats = members?.map(member => {

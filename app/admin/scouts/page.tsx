@@ -4,7 +4,14 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowUp, Check, Loader2, Minus, Plus, RefreshCcw, Search, SlidersHorizontal } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+<<<<<<< HEAD
 import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winner';
+=======
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ADJUSTMENT_RACHA_LOCATION, ADJUSTMENT_RACHA_NAME, initials, isAdjustmentRacha, normalizeName } from '@/lib/scouts';
@@ -108,11 +115,72 @@ export default function PlanilhaScoutsPage() {
                 const adjScouts = mine.filter(s => adjIds.has(s.racha_id));
                 const masterScout = adjScouts.find(s => s.racha_id === master.id);
 
+<<<<<<< HEAD
                 const manual = zeroFields();
                 const manualOther = zeroFields();
                 for (const c of COLUMNS) {
                     manual[c.key] = adjScouts.reduce((acc, s) => acc + (s[c.db] || 0), 0);
                     manualOther[c.key] = manual[c.key] - (masterScout?.[c.db] || 0);
+=======
+            const { data: allRachaScouts, error: scoutsError } = allRachaIds.length > 0
+                ? await fetchAllRows(() => supabase.from('racha_scouts').select('*').in('racha_id', allRachaIds))
+                : { data: [], error: null };
+            if (scoutsError) console.error('Erro racha_scouts:', scoutsError);
+
+            // match_player_stats pode não existir — ignorar silenciosamente
+            let champScouts: any[] = [];
+            try {
+                const { data: champData, error: champError } = await fetchAllRows(() => supabase
+                    .from('match_player_stats')
+                    .select('member_id, goals, assists, difficult_saves'));
+                if (!champError) champScouts = champData || [];
+            } catch (_) { /* tabela não existe, ignorar */ }
+
+            const { data: attendance, error: attendanceError } = closedRachaIds.length > 0
+                ? await fetchAllRows(() => supabase.from('racha_attendance').select('member_id, racha_id').eq('status', 'in').in('racha_id', closedRachaIds))
+                : { data: [], error: null };
+            if (attendanceError) console.error('Erro attendance:', attendanceError);
+
+            // 4. Calcular vitórias de campeonato (igual à página de integrantes)
+            const champWinsMap: Record<string, number> = {};
+            const { data: completedChamps } = await supabase
+                .from('championships')
+                .select('id')
+                .eq('status', 'completed');
+
+            if (completedChamps && completedChamps.length > 0) {
+                for (const champ of completedChamps) {
+                    const [{ data: champMatches }, { data: teams }] = await Promise.all([
+                        supabase.from('championship_matches')
+                            .select('team_a_id, team_b_id, score_a, score_b')
+                            .eq('championship_id', champ.id)
+                            .eq('status', 'completed'),
+                        supabase.from('teams')
+                            .select('id, team_members(member_id)')
+                            .eq('championship_id', champ.id),
+                    ]);
+                    if (!champMatches || !teams || teams.length === 0) continue;
+                    const standings = teams.map((team: any) => {
+                        let pts = 0;
+                        for (const m of champMatches) {
+                            const isA = m.team_a_id === team.id;
+                            const isB = m.team_b_id === team.id;
+                            if (!isA && !isB) continue;
+                            const mine = isA ? m.score_a : m.score_b;
+                            const theirs = isA ? m.score_b : m.score_a;
+                            if (mine > theirs) pts += 3;
+                            else if (mine === theirs) pts += 1;
+                        }
+                        return { pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
+                    });
+                    standings.sort((a: any, b: any) => b.pts - a.pts);
+                    const winner = standings[0];
+                    if (winner) {
+                        for (const memberId of winner.members) {
+                            champWinsMap[memberId] = (champWinsMap[memberId] || 0) + 1;
+                        }
+                    }
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
                 }
 
                 const sum = (db: string) => mine.reduce((acc, s) => acc + (s[db] || 0), 0);

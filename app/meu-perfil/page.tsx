@@ -6,6 +6,7 @@ import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winne
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import NextImage from 'next/image';
+import { getChampionTeamId } from '@/lib/championship-champion';
 import {
     User, Upload, Save, Camera, Edit2, Goal, HandMetal,
     Activity, Shield, Trophy, Crown, Star, Award, Medal,
@@ -146,7 +147,24 @@ export default function UserProfilePage() {
         const sheriff = ((rachasAsSheriff || []).filter(r => !adjustmentIds.has(r.id)).length) + manualSheriff;
 
         // Títulos de campeonato
+<<<<<<< HEAD
         const championships = countTitlesByMember(await loadChampionTeams(supabase))[memberId] || 0;
+=======
+        let championships = 0;
+        const { data: completedChamps } = await supabase.from('championships').select('*').eq('status', 'completed');
+        if (completedChamps && completedChamps.length > 0) {
+            for (const champ of completedChamps) {
+                const [{ data: champMatches }, { data: teams }] = await Promise.all([
+                    supabase.from('championship_matches').select('team_a_id, team_b_id, score_a, score_b, status, bracket_position, has_draw_advantage, penalty_winner_id').eq('championship_id', champ.id).eq('status', 'completed'),
+                    supabase.from('teams').select('id, team_members(member_id)').eq('championship_id', champ.id),
+                ]);
+                if (!champMatches || !teams || teams.length === 0) continue;
+                const winnerId = (champ as any).champion_team_id || getChampionTeamId(champMatches as any, teams.map((t: any) => t.id));
+                const winner = teams.find((t: any) => t.id === winnerId);
+                if (winner && (winner.team_members || []).some((tm: any) => tm.member_id === memberId)) championships += 1;
+            }
+        }
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
         setStats({ goals, assists, saves, warnings, matches, top1, top2, top3, sheriff, championships });
     };

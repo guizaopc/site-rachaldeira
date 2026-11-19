@@ -36,9 +36,20 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
     const [saving, setSaving] = useState(false);
     const [teamPhotoFile, setTeamPhotoFile] = useState<File | null>(null);
 
+<<<<<<< HEAD
     const emptyHighlights = (): Record<AwardType, string[]> => ({ craque: [], artilheiro: [], paredao: [], garcom: [], xerifao: [] });
     const [highlights, setHighlights] = useState<Record<AwardType, string[]>>(emptyHighlights);
     const [savedHighlights, setSavedHighlights] = useState<Record<AwardType, string[]>>(emptyHighlights);
+=======
+    const [highlights, setHighlights] = useState({
+        craque_id: '',
+        xerifao_id: '',
+        paredao_id: '',
+        garcom_id: '',
+        artilheiro_id: '',
+        champion_team_id: '',
+    });
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
     const [manualMatchForm, setManualMatchForm] = useState({
         team_a_id: '',
@@ -59,6 +70,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
             .from('championships').select('*').eq('id', campId).single();
 
         setChampionship(champData);
+<<<<<<< HEAD
 
         const { data: awardsData } = await supabase
             .from('championship_awards').select('award, member_id').eq('championship_id', campId);
@@ -66,6 +78,18 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
         for (const a of awardsData || []) loaded[a.award as AwardType]?.push(a.member_id);
         setHighlights(loaded);
         setSavedHighlights(loaded);
+=======
+        if (champData) {
+            setHighlights({
+                craque_id: champData.craque_id || 'none',
+                xerifao_id: champData.xerifao_id || 'none',
+                paredao_id: champData.paredao_id || 'none',
+                garcom_id: champData.garcom_id || 'none',
+                artilheiro_id: champData.artilheiro_id || 'none',
+                champion_team_id: champData.champion_team_id || 'none',
+            });
+        }
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
 
         const { data: teamsData } = await supabase
             .from('teams')
@@ -105,6 +129,7 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
         setSaving(true);
         try {
             const supabase = createClient();
+<<<<<<< HEAD
             // Aplica só a diferença: remove quem saiu e insere quem entrou
             const toInsert: { championship_id: string; award: AwardType; member_id: string }[] = [];
             for (const { id: award } of AWARD_TYPES) {
@@ -122,6 +147,20 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 const { error } = await supabase.from('championship_awards').insert(toInsert);
                 if (error) throw error;
             }
+=======
+            const { error } = await supabase.from('championships').update({
+                craque_id: highlights.craque_id === 'none' ? null : highlights.craque_id,
+                xerifao_id: highlights.xerifao_id === 'none' ? null : highlights.xerifao_id,
+                paredao_id: highlights.paredao_id === 'none' ? null : highlights.paredao_id,
+                garcom_id: highlights.garcom_id === 'none' ? null : highlights.garcom_id,
+                artilheiro_id: highlights.artilheiro_id === 'none' ? null : highlights.artilheiro_id,
+            }).eq('id', campId);
+            if (error) throw error;
+            const { error: champError } = await supabase.from('championships').update({
+                champion_team_id: highlights.champion_team_id === 'none' ? null : highlights.champion_team_id,
+            }).eq('id', campId);
+            if (champError) throw new Error('Destaques salvos, mas não foi possível salvar o campeão: ' + champError.message);
+>>>>>>> 35694bea2778a524cc98bc958465ec89b02ccd37
             alert('Destaques salvos!');
             loadData();
         } catch (err: any) {
@@ -536,6 +575,20 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 {activeTab === 'destaques' && (
                     <div className="space-y-6">
                         <p className="text-sm text-gray-500">Selecione os melhores jogadores do campeonato para o hall de troféus. Cada prêmio pode ter mais de um jogador (ex: empate na artilharia).</p>
+
+                        <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4 space-y-2">
+                            <div>
+                                <p className="font-bold text-gray-900">🏆 Time Campeão</p>
+                                <p className="text-xs text-gray-500">Deixe em &quot;Automático&quot; para usar o vencedor da final (ou o 1º da tabela, se não houver final). Escolha um time só para casos especiais, como W.O.</p>
+                            </div>
+                            <Select value={highlights.champion_team_id} onValueChange={v => setHighlights({ ...highlights, champion_team_id: v })}>
+                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">— Automático —</SelectItem>
+                                    {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {AWARD_TYPES.map(a => (

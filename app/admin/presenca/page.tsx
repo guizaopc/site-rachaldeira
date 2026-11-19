@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { PresencaFilters } from './presenca-filters';
 import { Users, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -48,11 +49,11 @@ export default async function PresencaPage({
 
     // Presenças confirmadas
     const { data: attendances } = rachaIds.length > 0
-        ? await supabase
+        ? await fetchAllRows(() => supabase
             .from('racha_attendance')
             .select('member_id, racha_id')
             .in('racha_id', rachaIds)
-            .eq('status', 'in')
+            .eq('status', 'in'))
         : { data: [] };
 
     const totalRachas = rachaIds.length;
