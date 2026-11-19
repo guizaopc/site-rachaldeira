@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { Plus, Trash2, Users, Play, CheckCircle, Trophy, Upload, Edit3, Save, Star, Shield, HandMetal, Beer, Crosshair, ArrowLeft, Swords, Settings, Clock } from 'lucide-react';
+import { AWARD_TYPES, type AwardType } from '@/lib/championship-awards';
 
 type Tab = 'partidas' | 'times' | 'destaques';
 
@@ -35,13 +36,9 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
     const [saving, setSaving] = useState(false);
     const [teamPhotoFile, setTeamPhotoFile] = useState<File | null>(null);
 
-    const [highlights, setHighlights] = useState({
-        craque_id: '',
-        xerifao_id: '',
-        paredao_id: '',
-        garcom_id: '',
-        artilheiro_id: '',
-    });
+    const emptyHighlights = (): Record<AwardType, string[]> => ({ craque: [], artilheiro: [], paredao: [], garcom: [], xerifao: [] });
+    const [highlights, setHighlights] = useState<Record<AwardType, string[]>>(emptyHighlights);
+    const [savedHighlights, setSavedHighlights] = useState<Record<AwardType, string[]>>(emptyHighlights);
 
     const [manualMatchForm, setManualMatchForm] = useState({
         team_a_id: '',
@@ -62,15 +59,13 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
             .from('championships').select('*').eq('id', campId).single();
 
         setChampionship(champData);
-        if (champData) {
-            setHighlights({
-                craque_id: champData.craque_id || 'none',
-                xerifao_id: champData.xerifao_id || 'none',
-                paredao_id: champData.paredao_id || 'none',
-                garcom_id: champData.garcom_id || 'none',
-                artilheiro_id: champData.artilheiro_id || 'none',
-            });
-        }
+
+        const { data: awardsData } = await supabase
+            .from('championship_awards').select('award, member_id').eq('championship_id', campId);
+        const loaded = emptyHighlights();
+        for (const a of awardsData || []) loaded[a.award as AwardType]?.push(a.member_id);
+        setHighlights(loaded);
+        setSavedHighlights(loaded);
 
         const { data: teamsData } = await supabase
             .from('teams')
@@ -110,14 +105,23 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
         setSaving(true);
         try {
             const supabase = createClient();
-            const { error } = await supabase.from('championships').update({
-                craque_id: highlights.craque_id === 'none' ? null : highlights.craque_id,
-                xerifao_id: highlights.xerifao_id === 'none' ? null : highlights.xerifao_id,
-                paredao_id: highlights.paredao_id === 'none' ? null : highlights.paredao_id,
-                garcom_id: highlights.garcom_id === 'none' ? null : highlights.garcom_id,
-                artilheiro_id: highlights.artilheiro_id === 'none' ? null : highlights.artilheiro_id,
-            }).eq('id', campId);
-            if (error) throw error;
+            // Aplica só a diferença: remove quem saiu e insere quem entrou
+            const toInsert: { championship_id: string; award: AwardType; member_id: string }[] = [];
+            for (const { id: award } of AWARD_TYPES) {
+                const before = savedHighlights[award];
+                const after = highlights[award];
+                const removed = before.filter(m => !after.includes(m));
+                if (removed.length > 0) {
+                    const { error } = await supabase.from('championship_awards').delete()
+                        .eq('championship_id', campId).eq('award', award).in('member_id', removed);
+                    if (error) throw error;
+                }
+                for (const m of after.filter(m => !before.includes(m))) toInsert.push({ championship_id: campId, award, member_id: m });
+            }
+            if (toInsert.length > 0) {
+                const { error } = await supabase.from('championship_awards').insert(toInsert);
+                if (error) throw error;
+            }
             alert('Destaques salvos!');
             loadData();
         } catch (err: any) {
@@ -531,14 +535,19 @@ export default function GerenciarCampeonatoPage({ params }: { params: Promise<{ 
                 {/* ===== ABA DESTAQUES ===== */}
                 {activeTab === 'destaques' && (
                     <div className="space-y-6">
-                        <p className="text-sm text-gray-500">Selecione os melhores jogadores do campeonato para o hall de troféus.</p>
+                        <p className="text-sm text-gray-500">Selecione os melhores jogadores do campeonato para o hall de troféus. Cada prêmio pode ter mais de um jogador (ex: empate na artilharia).</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <AwardSelect label="👑 Craque" sublabel="Melhor jogador" value={highlights.craque_id} onChange={v => setHighlights({ ...highlights, craque_id: v })} members={members} />
-                            <AwardSelect label="⚽ Artilheiro" sublabel="Mais gols" value={highlights.artilheiro_id} onChange={v => setHighlights({ ...highlights, artilheiro_id: v })} members={members} />
-                            <AwardSelect label="🧤 Paredão" sublabel="Melhor goleiro" value={highlights.paredao_id} onChange={v => setHighlights({ ...highlights, paredao_id: v })} members={members} />
-                            <AwardSelect label="🍽️ Garçom" sublabel="Mais assistências" value={highlights.garcom_id} onChange={v => setHighlights({ ...highlights, garcom_id: v })} members={members} />
-                            <AwardSelect label="👮 Xerifão" sublabel="Melhor zagueiro" value={highlights.xerifao_id} onChange={v => setHighlights({ ...highlights, xerifao_id: v })} members={members} />
+                            {AWARD_TYPES.map(a => (
+                                <AwardSelect
+                                    key={a.id}
+                                    label={`${a.emoji} ${a.label}`}
+                                    sublabel={a.sublabel}
+                                    value={highlights[a.id]}
+                                    onChange={v => setHighlights(h => ({ ...h, [a.id]: v }))}
+                                    members={members}
+                                />
+                            ))}
                         </div>
 
                         <Button onClick={handleSaveHighlights} disabled={saving} className="w-full" size="lg">
@@ -718,18 +727,29 @@ function MatchCard({ match, onRegister, onDelete, onTimeChange, completed }: {
     );
 }
 
-function AwardSelect({ label, sublabel, value, onChange, members }: { label: string; sublabel: string; value: string; onChange: (v: string) => void; members: any[] }) {
+function AwardSelect({ label, sublabel, value, onChange, members }: { label: string; sublabel: string; value: string[]; onChange: (v: string[]) => void; members: any[] }) {
+    const available = members.filter(m => !value.includes(m.id));
     return (
-        <div className="bg-white rounded-xl border p-4 space-y-2">
+        <div className="bg-white rounded-xl border p-4 space-y-3">
             <div>
                 <p className="font-bold text-gray-900">{label}</p>
                 <p className="text-xs text-gray-400">{sublabel}</p>
             </div>
-            <Select value={value} onValueChange={onChange}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            {value.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {value.map(id => (
+                        <span key={id} className="flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-full pl-2.5 pr-1.5 py-1 text-xs font-semibold">
+                            {members.find(m => m.id === id)?.name || 'Jogador removido'}
+                            <button type="button" onClick={() => onChange(value.filter(v => v !== id))} className="text-blue-300 hover:text-red-500 font-bold px-0.5" aria-label="Remover">×</button>
+                        </span>
+                    ))}
+                </div>
+            )}
+            {/* key muda a cada adição para o Select voltar ao placeholder */}
+            <Select key={value.join(',')} value="" onValueChange={v => v && onChange([...value, v])}>
+                <SelectTrigger><SelectValue placeholder={value.length ? '+ Adicionar outro jogador' : 'Selecione...'} /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="none">— Nenhum —</SelectItem>
-                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                    {available.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
             </Select>
         </div>

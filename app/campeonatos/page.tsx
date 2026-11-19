@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trophy, History, Calendar, MapPin, ArrowRight, Medal } from 'lucide-react';
+import { Trophy, History, Calendar, MapPin, ArrowRight, Medal, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default async function CampeonatosPage() {
@@ -27,6 +27,20 @@ export default async function CampeonatosPage() {
                     <p className="text-xl text-gray-600 max-w-2xl mx-auto">
                         O palco onde as lendas são forjadas e as amizades... bem, continuam as mesmas.
                     </p>
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                        <Link href="/campeonatos/ranking">
+                            <Button className="gap-2 rounded-full bg-[#093a9f] hover:bg-[#072d7c] text-white px-6 shadow-md">
+                                <BarChart3 size={16} />
+                                Ranking Geral
+                            </Button>
+                        </Link>
+                        <Link href="/campeonatos/trofeus">
+                            <Button variant="outline" className="gap-2 rounded-full px-6">
+                                <Medal size={16} />
+                                Troféus
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
             </div>
 
@@ -105,7 +119,7 @@ export default async function CampeonatosPage() {
                 {/* Histórico */}
                 {(pastChampionships.length > 0 || activeChampionships.length === 0) && (
                     <section>
-                        <div className="flex items-center justify-between gap-3 mb-8 border-b border-gray-200 pb-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-8 border-b border-gray-200 pb-4">
                             <div className="flex items-center gap-3">
                                 <div className="bg-gray-100 p-2 rounded-lg">
                                     <History className="text-gray-700" size={24} />
@@ -114,12 +128,20 @@ export default async function CampeonatosPage() {
                                     Galeria de Campeões (Histórico)
                                 </h2>
                             </div>
-                            <Link href="/campeonatos/trofeus">
-                                <Button variant="outline" className="gap-2 rounded-full text-sm">
-                                    <Medal size={15} />
-                                    Ver Troféus
-                                </Button>
-                            </Link>
+                            <div className="flex gap-2">
+                                <Link href="/campeonatos/ranking">
+                                    <Button variant="outline" className="gap-2 rounded-full text-sm">
+                                        <BarChart3 size={15} />
+                                        Ranking Geral
+                                    </Button>
+                                </Link>
+                                <Link href="/campeonatos/trofeus">
+                                    <Button variant="outline" className="gap-2 rounded-full text-sm">
+                                        <Medal size={15} />
+                                        Ver Troféus
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
 
                         {pastChampionships.length > 0 ? (

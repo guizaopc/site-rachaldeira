@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ArrowLeft, User, Trophy, Activity, Shield, Star, Medal, Crown, Award } from 'lucide-react';
 import { PUBLIC_MEMBER_COLUMNS } from '@/lib/utils';
+import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winner';
 
 export const revalidate = 0;
 
@@ -85,44 +86,8 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
     const sheriffCount = ((rachasAsSheriff || []).filter(r => !adjustmentIds.has(r.id)).length) + manualSheriff;
     const points       = top1Count * 3 + top2Count * 2 + top3Count + sheriffCount;
 
-    // Títulos de campeonato (mesma lógica da página de integrantes)
-    const { data: completedChamps } = await supabase
-        .from('championships')
-        .select('id')
-        .eq('status', 'completed');
-
-    let championships = 0;
-    if (completedChamps && completedChamps.length > 0) {
-        for (const champ of completedChamps) {
-            const [{ data: champMatches }, { data: teams }] = await Promise.all([
-                supabase.from('championship_matches')
-                    .select('team_a_id, team_b_id, score_a, score_b')
-                    .eq('championship_id', champ.id)
-                    .eq('status', 'completed'),
-                supabase.from('teams')
-                    .select('id, team_members(member_id)')
-                    .eq('championship_id', champ.id),
-            ]);
-            if (!champMatches || !teams || teams.length === 0) continue;
-
-            const standings = teams.map((team: any) => {
-                let pts = 0;
-                for (const m of champMatches) {
-                    const isA = m.team_a_id === team.id;
-                    const isB = m.team_b_id === team.id;
-                    if (!isA && !isB) continue;
-                    const mine   = isA ? m.score_a : m.score_b;
-                    const theirs = isA ? m.score_b : m.score_a;
-                    if (mine > theirs) pts += 3;
-                    else if (mine === theirs) pts += 1;
-                }
-                return { pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
-            });
-            standings.sort((a: any, b: any) => b.pts - a.pts);
-            const winner = standings[0];
-            if (winner?.members.includes(id)) championships += 1;
-        }
-    }
+    // Títulos de campeonato (manual > final > classificação)
+    const championships = countTitlesByMember(await loadChampionTeams(supabase))[id] || 0;
 
     const LEVEL_RATING = [65, 73, 80, 87, 94];
     const LEVEL_LABEL  = ['Bronze', 'Prata', 'Ouro', 'Elite', 'Lenda'];

@@ -1,161 +1,174 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Trophy, Medal, Star, Shield, Users, HandMetal, Beer, Crosshair } from 'lucide-react';
+import { CHAMPION_MATCH_COLUMNS, pickChampionTeamId, type ChampionMatch } from '@/lib/championship-winner';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, BarChart3 } from 'lucide-react';
+import ChampionshipRankingTable, { type ChampionshipRankingRow, type ChampionTeam } from './ranking-table';
+
+export const metadata = {
+    title: 'Ranking Geral dos Campeonatos | Rachaldeira',
+};
+
+export const dynamic = 'force-dynamic';
 
 export default async function ChampionshipRankingPage() {
     const supabase = await createClient();
 
-    // Buscar membros
-    const { data: members } = await supabase
-        .from('members')
-        .select('id, name, position')
-        .order('name');
+    const [
+        { data: members },
+        { data: matchStats },
+        { data: championships },
+        { data: completedMatches },
+        { data: teams },
+        { data: manualWins },
+        { data: awards },
+    ] = await Promise.all([
+        supabase
+            .from('members')
+            .select('id, name, photo_url, position')
+            .order('name'),
+        supabase
+            .from('match_player_stats')
+            .select('member_id, goals, assists, difficult_saves'),
+        supabase
+            .from('championships')
+            .select('id, name, start_date, logo_url, status, champion_team_id')
+            .order('start_date', { ascending: false }),
+        supabase
+            .from('championship_matches')
+            .select(CHAMPION_MATCH_COLUMNS)
+            .eq('status', 'completed'),
+        supabase
+            .from('teams')
+            .select('id, name, logo_url, championship_id, team_members(member_id)'),
+        // Ajuste manual de títulos (coluna só visível para usuários logados)
+        supabase
+            .from('members')
+            .select('id, championship_wins'),
+        supabase
+            .from('championship_awards')
+            .select('award, member_id'),
+    ]);
 
-    // Buscar stats de partidas de campeonato
-    const { data: championshipStats } = await supabase
-        .from('match_player_stats')
-        .select(`
-            member_id,
-            goals,
-            assists,
-            difficult_saves,
-            match_id,
-            matches:match_id!inner (
-                championship_id
-            )
-        `);
+    type Row = Omit<ChampionshipRankingRow, 'id' | 'name' | 'photo_url' | 'position' | 'championTeams'>;
+    const empty = (): Row => ({ goals: 0, assists: 0, saves: 0, trophies: 0, craque: 0, paredao: 0, xerifao: 0, garcom: 0 });
+    const stats: Record<string, Row> = {};
+    const get = (id: string) => (stats[id] ??= empty());
 
-    // Buscar todos os campeonatos para contar títulos e prêmios individuais
-    const { data: championships } = await supabase
-        .from('championships')
-        .select('id, status, craque_id, xerifao_id, paredao_id, garcom_id, artilheiro_id');
+    // Gols, assistências e defesas nas partidas de campeonato
+    for (const s of matchStats || []) {
+        const row = get(s.member_id);
+        row.goals += s.goals || 0;
+        row.assists += s.assists || 0;
+        row.saves += s.difficult_saves || 0;
+    }
 
-    // Processar dados
-    const rankings = members?.map(member => {
-        const stats = championshipStats?.filter((s: any) => s.member_id === member.id) || [];
+    // Prêmios individuais
+    // (cada prêmio pode ter mais de um vencedor por campeonato)
+    for (const a of (awards || []) as { award: string; member_id: string }[]) {
+        if (a.award === 'craque' || a.award === 'paredao' || a.award === 'xerifao' || a.award === 'garcom') {
+            get(a.member_id)[a.award] += 1;
+        }
+    }
 
-        const goals = stats.reduce((sum: number, s: any) => sum + (s.goals || 0), 0);
-        const assists = stats.reduce((sum: number, s: any) => sum + (s.assists || 0), 0);
+    // Troféus: integrantes do time campeão de cada campeonato concluído
+    type TeamInfo = { id: string; name: string; logo_url: string | null; members: string[] };
+    const teamsByChamp: Record<string, TeamInfo[]> = {};
+    for (const t of (teams || []) as any[]) {
+        (teamsByChamp[t.championship_id] ??= []).push({
+            id: t.id,
+            name: t.name,
+            logo_url: t.logo_url,
+            members: (t.team_members || []).map((tm: any) => tm.member_id),
+        });
+    }
 
-        // Calcular participações em campeonatos distintos
-        const uniqueCamps = new Set(stats.map((s: any) => s.matches?.championship_id).filter(Boolean));
-        const participations = uniqueCamps.size;
+    // Times campeões de cada jogador (mais recente primeiro)
+    const championTeamsByMember: Record<string, ChampionTeam[]> = {};
 
-        // Prêmios individuais salvos nos campeonatos
-        const craqueTitles = championships?.filter(c => c.craque_id === member.id).length || 0;
-        const xerifaoTitles = championships?.filter(c => c.xerifao_id === member.id).length || 0;
-        const paredaoTitles = championships?.filter(c => c.paredao_id === member.id).length || 0;
-        const garcomTitles = championships?.filter(c => c.garcom_id === member.id).length || 0;
-        const artilheiroTitles = championships?.filter(c => c.artilheiro_id === member.id).length || 0;
+    for (const camp of championships || []) {
+        if (camp.status !== 'completed') continue;
+        const champTeams = teamsByChamp[camp.id] || [];
+        const matches = ((completedMatches || []) as ChampionMatch[]).filter(m => m.championship_id === camp.id);
+        const winnerId = pickChampionTeamId(champTeams.map(t => t.id), matches, camp.champion_team_id);
 
-        // TODO: Títulos de campeão
-        const titles = 0;
-        const finals = 0;
+        const winner = champTeams.find(t => t.id === winnerId);
+        for (const memberId of winner?.members || []) {
+            get(memberId).trophies += 1;
+            (championTeamsByMember[memberId] ??= []).push({
+                teamName: winner!.name,
+                logo_url: winner!.logo_url,
+                championship: camp.name,
+                year: new Date(camp.start_date).getFullYear(),
+            });
+        }
+    }
 
-        return {
-            ...member,
-            goals,
-            assists,
-            participations,
-            titles,
-            finals,
-            craqueTitles,
-            xerifaoTitles,
-            garcomTitles,
-            paredaoTitles,
-            artilheiroTitles
-        };
-    }) || [];
+    for (const m of (manualWins || []) as { id: string; championship_wins: number | null }[]) {
+        if (m.championship_wins) get(m.id).trophies += m.championship_wins;
+    }
 
-    // Ordenar por prêmios individuais + goals/assists
-    const sortedRankings = rankings.sort((a, b) =>
-        (b.craqueTitles + b.titles + b.artilheiroTitles) - (a.craqueTitles + a.titles + a.artilheiroTitles) ||
-        b.goals - a.goals ||
-        b.assists - a.assists
+    const rows: ChampionshipRankingRow[] = (members || [])
+        .filter(m => stats[m.id])
+        .map(m => ({
+            id: m.id,
+            name: m.name,
+            photo_url: m.photo_url,
+            position: m.position,
+            championTeams: championTeamsByMember[m.id] || [],
+            ...stats[m.id],
+        }))
+        .filter(r => r.goals + r.assists + r.saves + r.trophies + r.craque + r.paredao + r.xerifao + r.garcom > 0);
+
+    const totals = rows.reduce(
+        (acc, r) => ({ goals: acc.goals + r.goals, assists: acc.assists + r.assists, saves: acc.saves + r.saves }),
+        { goals: 0, assists: 0, saves: 0 },
     );
+    const completedCount = (championships || []).filter(c => c.status === 'completed').length;
 
     return (
-        <main className="min-h-screen bg-slate-50 p-6 pb-20">
-            <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gray-900 text-yellow-500 mb-6 shadow-xl rotate-3">
-                        <Trophy size={40} />
-                    </div>
-                    <h1 className="text-5xl font-black text-slate-900 mb-3 tracking-tight">Hall da Fama</h1>
-                    <p className="text-slate-500 font-medium text-lg">Os maiores nomes da história do Rachaldeira</p>
-                </div>
-
-                <Card className="shadow-2xl border-none rounded-3xl overflow-hidden">
-                    <CardHeader className="bg-white border-b p-8">
-                        <div className="flex justify-between items-center">
-                            <CardTitle className="text-2xl font-bold text-slate-800">Ranking de Atletas</CardTitle>
-                            <div className="flex gap-2">
-                                <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">VIP</span>
-                                <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">Oficial</span>
+        <main className="min-h-screen bg-gray-50">
+            <div className="bg-white border-b border-gray-100">
+                <div className="max-w-6xl mx-auto px-4 pt-12 pb-10">
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+                        <div>
+                            <div className="inline-flex items-center gap-2 text-[#093a9f] bg-blue-50 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                                <BarChart3 size={14} /> Todos os campeonatos
+                            </div>
+                            <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-3">
+                                Ranking Geral
+                            </h1>
+                            <p className="text-gray-500 text-base md:text-lg max-w-xl">
+                                Gols, assistências, defesas, títulos e prêmios individuais somados de todos os campeonatos.
+                            </p>
+                        </div>
+                        <div className="flex gap-8 md:pb-1">
+                            <div>
+                                <p className="text-3xl font-black text-[#093a9f]">{completedCount}</p>
+                                <p className="text-gray-400 text-sm font-medium">Campeonatos</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-[#093a9f]">{totals.goals}</p>
+                                <p className="text-gray-400 text-sm font-medium">Gols</p>
+                            </div>
+                            <div className="hidden sm:block">
+                                <p className="text-3xl font-black text-[#093a9f]">{totals.saves}</p>
+                                <p className="text-gray-400 text-sm font-medium">Defesas</p>
                             </div>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-slate-50/50 hover:bg-transparent border-none">
-                                        <TableHead className="w-20 text-center font-bold text-slate-400">#</TableHead>
-                                        <TableHead className="font-bold text-slate-800">Atleta</TableHead>
-                                        <TableHead className="text-center font-bold text-slate-800">Gols</TableHead>
-                                        <TableHead className="text-center font-bold text-slate-800">Assist</TableHead>
-                                        <TableHead className="text-center bg-yellow-50/50 font-bold text-yellow-700"><Star size={16} className="inline mr-1" /> Craque</TableHead>
-                                        <TableHead className="text-center bg-red-50/50 font-bold text-red-700"><Crosshair size={16} className="inline mr-1" /> Artilheiro</TableHead>
-                                        <TableHead className="text-center bg-blue-50/50 font-bold text-blue-700"><Shield size={16} className="inline mr-1" /> Xerifão</TableHead>
-                                        <TableHead className="text-center bg-orange-50/50 font-bold text-orange-700"><HandMetal size={16} className="inline mr-1" /> Paredão</TableHead>
-                                        <TableHead className="text-center bg-green-50/50 font-bold text-green-700"><Beer size={16} className="inline mr-1" /> Garçom</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sortedRankings.filter(p => p.goals > 0 || p.craqueTitles > 0).map((player, idx) => (
-                                        <TableRow key={player.id} className="group hover:bg-slate-50 transition-all border-b border-slate-100">
-                                            <TableCell className="text-center">
-                                                <span className={`text-lg font-black ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-400' : 'text-slate-300'}`}>
-                                                    {idx + 1}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors">{player.name}</span>
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">{player.position || 'RESERVA'}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <span className="text-xl font-bold text-slate-800">{player.goals}</span>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <span className="text-xl font-medium text-slate-500">{player.assists}</span>
-                                            </TableCell>
+                    </div>
+                </div>
+            </div>
 
-                                            {/* Awards */}
-                                            <TableCell className="text-center bg-yellow-50/20">
-                                                {player.craqueTitles > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-100 text-yellow-700 font-bold border border-yellow-200">{player.craqueTitles}</span> : <span className="text-slate-200">-</span>}
-                                            </TableCell>
-                                            <TableCell className="text-center bg-red-50/20">
-                                                {player.artilheiroTitles > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-700 font-bold border border-red-200">{player.artilheiroTitles}</span> : <span className="text-slate-200">-</span>}
-                                            </TableCell>
-                                            <TableCell className="text-center bg-blue-50/20">
-                                                {player.xerifaoTitles > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold border border-blue-200">{player.xerifaoTitles}</span> : <span className="text-slate-200">-</span>}
-                                            </TableCell>
-                                            <TableCell className="text-center bg-orange-50/20">
-                                                {player.paredaoTitles > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-700 font-bold border border-orange-200">{player.paredaoTitles}</span> : <span className="text-slate-200">-</span>}
-                                            </TableCell>
-                                            <TableCell className="text-center bg-green-50/20">
-                                                {player.garcomTitles > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-700 font-bold border border-green-200">{player.garcomTitles}</span> : <span className="text-slate-200">-</span>}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="max-w-6xl mx-auto px-4 py-10">
+                <Link href="/campeonatos">
+                    <Button variant="ghost" className="text-gray-600 hover:text-gray-900 gap-2 -ml-2 mb-6">
+                        <ArrowLeft size={16} />
+                        Voltar para Campeonatos
+                    </Button>
+                </Link>
+
+                <ChampionshipRankingTable rows={rows} />
             </div>
         </main>
     );

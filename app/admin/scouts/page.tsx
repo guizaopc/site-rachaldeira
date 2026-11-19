@@ -1,547 +1,402 @@
-// TEST REFRESH
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
+import { ArrowDown, ArrowUp, Check, Loader2, Minus, Plus, RefreshCcw, Search, SlidersHorizontal } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winner';
 import { Button } from '@/components/ui/button';
-import { Search, Users, Loader2, Plus, Minus, CheckCircle, RefreshCcw, Trophy } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ADJUSTMENT_RACHA_LOCATION, ADJUSTMENT_RACHA_NAME, initials, isAdjustmentRacha, normalizeName } from '@/lib/scouts';
 
-export default function EdicaoScoutsPage() {
-    const [members, setMembers] = useState<any[]>([]);
+type Field = 'presence' | 'goals' | 'assists' | 'saves' | 'top1' | 'top2' | 'top3' | 'sheriff';
+
+const COLUMNS: { key: Field; label: string; db: string; emoji: string }[] = [
+    { key: 'presence', label: 'Jogos', db: 'attendance_count', emoji: '📅' },
+    { key: 'goals', label: 'Gols', db: 'goals', emoji: '⚽' },
+    { key: 'assists', label: 'Assist.', db: 'assists', emoji: '🎯' },
+    { key: 'saves', label: 'Defesas', db: 'difficult_saves', emoji: '🧤' },
+    { key: 'top1', label: 'Top 1', db: 'top1_count', emoji: '🥇' },
+    { key: 'top2', label: 'Top 2', db: 'top2_count', emoji: '🥈' },
+    { key: 'top3', label: 'Top 3', db: 'top3_count', emoji: '🥉' },
+    { key: 'sheriff', label: 'Xerife', db: 'sheriff_count', emoji: '🤠' },
+];
+
+type Row = {
+    id: string;
+    name: string;
+    position: string | null;
+    photo_url: string | null;
+    championship_wins: number;
+    total: Record<Field, number>;
+    manual: Record<Field, number>;      // soma de todos os rachas de ajuste
+    manualOther: Record<Field, number>; // parte que está em rachas de ajuste legados (não editáveis)
+};
+
+type SortKey = 'name' | Field | 'titles';
+
+const zeroFields = () => Object.fromEntries(COLUMNS.map(c => [c.key, 0])) as Record<Field, number>;
+
+// O Supabase devolve no máximo 1000 linhas por consulta: pagina até acabar
+async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>) {
+    const out: T[] = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build(from, from + PAGE - 1);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < PAGE) break;
+    }
+    return out;
+}
+
+export default function PlanilhaScoutsPage() {
+    const [rows, setRows] = useState<Row[]>([]);
+    const rowsRef = useRef<Row[]>([]);
+    rowsRef.current = rows;
+    const [masterId, setMasterId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [savingId, setSavingId] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [adjustmentRachaId, setAdjustmentRachaId] = useState<string | null>(null);
+    const [cellState, setCellState] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+    const [search, setSearch] = useState('');
+    const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
+    const [onlyAdjusted, setOnlyAdjusted] = useState(false);
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
-
         try {
-            // 1. Buscar ou Criar o Racha de Ajustes Globais
-            let { data: adjRacha } = await supabase
+            const allRachas = await fetchAll<any>((a, b) => supabase
                 .from('rachas')
-                .select('id')
-                .or('name.eq.Ajustes Globais Manuais,location.eq.Sistema (Manual)')
-                .order('created_at', { ascending: true }) // Pegar o primeiro criado para ser o mestre
-                .limit(1)
-                .maybeSingle();
+                .select('id, name, location, status, created_at, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id')
+                .order('created_at', { ascending: true })
+                .range(a, b));
 
-            if (!adjRacha) {
-                const { data: newRacha } = await supabase
-                    .from('rachas')
-                    .insert({
-                        name: 'Ajustes Globais Manuais',
-                        date_time: new Date().toISOString(),
-                        location: 'Sistema (Manual)',
-                        status: 'closed',
-                        periodicity: 'once'
-                    })
-                    .select()
-                    .single();
-                adjRacha = newRacha;
+            // Racha "mestre" de ajustes: o mais antigo. Cria se não existir.
+            const adjRachas = allRachas.filter(isAdjustmentRacha);
+            let master = adjRachas[0];
+            if (!master) {
+                const { data, error } = await supabase.from('rachas').insert({
+                    name: ADJUSTMENT_RACHA_NAME,
+                    date_time: new Date().toISOString(),
+                    location: ADJUSTMENT_RACHA_LOCATION,
+                    status: 'closed',
+                    periodicity: 'once',
+                }).select('id, name, location').single();
+                if (error) throw new Error('Não foi possível criar o registro de ajustes: ' + error.message);
+                master = data;
+                adjRachas.push(data);
             }
-            setAdjustmentRachaId(adjRacha?.id || null);
+            setMasterId(master.id);
+            const adjIds = new Set(adjRachas.map(r => r.id));
+            const closedReal = allRachas.filter(r => r.status === 'closed' && !adjIds.has(r.id));
+            const closedRealIds = new Set(closedReal.map(r => r.id));
 
-            // 2. Buscar membros ativos
-            const { data: membersData, error: membersError } = await supabase
-                .from('members')
-                .select('id, name, position')
-                .eq('is_active', true)
-                .order('name');
-            if (membersError) throw new Error('Erro ao buscar membros: ' + membersError.message);
-            console.log('Membros carregados:', membersData?.length);
+            const [members, scouts, attendance, champWins] = await Promise.all([
+                supabase.from('members').select('id, name, position, photo_url').eq('is_active', true).order('name')
+                    .then(({ data, error }) => { if (error) throw error; return data || []; }),
+                fetchAll<any>((a, b) => supabase.from('racha_scouts').select('*').range(a, b)),
+                fetchAll<any>((a, b) => supabase.from('racha_attendance').select('member_id, racha_id').eq('status', 'in').range(a, b)),
+                loadChampionshipWins(supabase),
+            ]);
 
-            // 3. Buscar Dados de TODO o sistema
-            const { data: allRachas } = await supabase
-                .from('rachas')
-                .select('id, status, location, top1_id, top1_extra_id, top1_extra2_id, top2_id, top2_extra_id, top2_extra2_id, top3_id, top3_extra_id, top3_extra2_id, sheriff_id, sheriff_extra_id, sheriff_extra2_id');
+            const highlightCount = (memberId: string, prefix: string) => closedReal.filter(r =>
+                r[`${prefix}_id`] === memberId || r[`${prefix}_extra_id`] === memberId || r[`${prefix}_extra2_id`] === memberId,
+            ).length;
 
-            const allRachaIds = allRachas?.map(r => r.id) || [];
-            const closedRachaIds = allRachas?.filter(r => r.status === 'closed' && r.location !== 'Sistema (Manual)').map(r => r.id) || [];
+            const built: Row[] = members.map((m: any) => {
+                const mine = scouts.filter(s => s.member_id === m.id);
+                const adjScouts = mine.filter(s => adjIds.has(s.racha_id));
+                const masterScout = adjScouts.find(s => s.racha_id === master.id);
 
-            const { data: allRachaScouts, error: scoutsError } = allRachaIds.length > 0
-                ? await supabase.from('racha_scouts').select('*').in('racha_id', allRachaIds)
-                : { data: [], error: null };
-            if (scoutsError) console.error('Erro racha_scouts:', scoutsError);
-
-            // match_player_stats pode não existir — ignorar silenciosamente
-            let champScouts: any[] = [];
-            try {
-                const { data: champData, error: champError } = await supabase
-                    .from('match_player_stats')
-                    .select('member_id, goals, assists, difficult_saves');
-                if (!champError) champScouts = champData || [];
-            } catch (_) { /* tabela não existe, ignorar */ }
-
-            const { data: attendance, error: attendanceError } = closedRachaIds.length > 0
-                ? await supabase.from('racha_attendance').select('member_id, racha_id').eq('status', 'in').in('racha_id', closedRachaIds)
-                : { data: [], error: null };
-            if (attendanceError) console.error('Erro attendance:', attendanceError);
-
-            // 4. Calcular vitórias de campeonato (igual à página de integrantes)
-            const champWinsMap: Record<string, number> = {};
-            const { data: completedChamps } = await supabase
-                .from('championships')
-                .select('id')
-                .eq('status', 'completed');
-
-            if (completedChamps && completedChamps.length > 0) {
-                for (const champ of completedChamps) {
-                    const [{ data: champMatches }, { data: teams }] = await Promise.all([
-                        supabase.from('championship_matches')
-                            .select('team_a_id, team_b_id, score_a, score_b')
-                            .eq('championship_id', champ.id)
-                            .eq('status', 'completed'),
-                        supabase.from('teams')
-                            .select('id, team_members(member_id)')
-                            .eq('championship_id', champ.id),
-                    ]);
-                    if (!champMatches || !teams || teams.length === 0) continue;
-                    const standings = teams.map((team: any) => {
-                        let pts = 0;
-                        for (const m of champMatches) {
-                            const isA = m.team_a_id === team.id;
-                            const isB = m.team_b_id === team.id;
-                            if (!isA && !isB) continue;
-                            const mine = isA ? m.score_a : m.score_b;
-                            const theirs = isA ? m.score_b : m.score_a;
-                            if (mine > theirs) pts += 3;
-                            else if (mine === theirs) pts += 1;
-                        }
-                        return { pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
-                    });
-                    standings.sort((a: any, b: any) => b.pts - a.pts);
-                    const winner = standings[0];
-                    if (winner) {
-                        for (const memberId of winner.members) {
-                            champWinsMap[memberId] = (champWinsMap[memberId] || 0) + 1;
-                        }
-                    }
+                const manual = zeroFields();
+                const manualOther = zeroFields();
+                for (const c of COLUMNS) {
+                    manual[c.key] = adjScouts.reduce((acc, s) => acc + (s[c.db] || 0), 0);
+                    manualOther[c.key] = manual[c.key] - (masterScout?.[c.db] || 0);
                 }
-            }
 
-            // 5. Consolidar
-            const consolidated = membersData?.map(m => {
-                const rScouts = allRachaScouts?.filter(s => s.member_id === m.id) || [];
-                const cScouts = champScouts?.filter(s => s.member_id === m.id) || [];
-                const mAttendance = attendance?.filter(a => a.member_id === m.id) || [];
-                const manual = rScouts.find(s => s.racha_id === adjRacha?.id);
+                const sum = (db: string) => mine.reduce((acc, s) => acc + (s[db] || 0), 0);
+                const games = attendance.filter(a => a.member_id === m.id && closedRealIds.has(a.racha_id)).length;
 
-                // Gols, Assis e Defesas (Soma de tudo EXCEPTO campeonatos)
-                const total_goals = rScouts.reduce((acc, s) => acc + (s.goals || 0), 0);
-                const total_assists = rScouts.reduce((acc, s) => acc + (s.assists || 0), 0);
-                const total_saves = rScouts.reduce((acc, s) => acc + (s.difficult_saves || 0), 0);
-
-                // Presidência/Jogos (Reais + Ajuste Manual)
-                const total_presence = mAttendance.length + (manual?.attendance_count || 0);
-
-                // Destaques (Soma das indicações nos rachas + Ajustes Manuais na racha_scouts)
-                // Incluindo suporte aos novos slots extra2
-                const total_top1 = (allRachas?.filter((r: any) => (r.top1_id === m.id || r.top1_extra_id === m.id || r.top1_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
-                    rScouts.reduce((acc, s) => acc + ((s as any).top1_count || 0), 0);
-                const total_top2 = (allRachas?.filter((r: any) => (r.top2_id === m.id || r.top2_extra_id === m.id || r.top2_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
-                    rScouts.reduce((acc, s) => acc + ((s as any).top2_count || 0), 0);
-                const total_top3 = (allRachas?.filter((r: any) => (r.top3_id === m.id || r.top3_extra_id === m.id || r.top3_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
-                    rScouts.reduce((acc, s) => acc + ((s as any).top3_count || 0), 0);
-                const total_sheriff = (allRachas?.filter((r: any) => (r.sheriff_id === m.id || r.sheriff_extra_id === m.id || r.sheriff_extra2_id === m.id) && r.id !== adjRacha?.id).length || 0) +
-                    rScouts.reduce((acc, s) => acc + ((s as any).sheriff_count || 0), 0);
-
-                return {
-                    ...m,
-                    manual_id: manual?.id || null,
-                    // Valores manuais (ajustes)
-                    manual_goals: manual?.goals || 0,
-                    manual_assists: manual?.assists || 0,
-                    manual_saves: manual?.difficult_saves || 0,
-                    manual_presence: manual?.attendance_count || 0,
-                    manual_top1: (manual as any)?.top1_count || 0,
-                    manual_top2: (manual as any)?.top2_count || 0,
-                    manual_top3: (manual as any)?.top3_count || 0,
-                    manual_sheriff: (manual as any)?.sheriff_count || 0,
-                    // Totais exibidos (Soma real + Ajuste)
-                    total_goals,
-                    total_assists,
-                    total_saves,
-                    total_presence,
-                    total_top1,
-                    total_top2,
-                    total_top3,
-                    total_sheriff,
-                            // Títulos calculados via standings de campeonatos
-                    championship_wins: champWinsMap[m.id] || 0,
+                // Mesmas regras do ranking: gols/assist./defesas de todos os rachas; jogos e destaques só de rachas encerrados
+                const total: Record<Field, number> = {
+                    presence: games + manual.presence,
+                    goals: sum('goals'),
+                    assists: sum('assists'),
+                    saves: sum('difficult_saves'),
+                    top1: highlightCount(m.id, 'top1') + manual.top1,
+                    top2: highlightCount(m.id, 'top2') + manual.top2,
+                    top3: highlightCount(m.id, 'top3') + manual.top3,
+                    sheriff: highlightCount(m.id, 'sheriff') + manual.sheriff,
                 };
-            }) || [];
 
-            setMembers(consolidated);
+                return { ...m, championship_wins: champWins[m.id] || 0, total, manual, manualOther };
+            });
+
+            setRows(built);
         } catch (error: any) {
-            console.error('Erro ao carregar dados:', error);
-            alert('Erro ao carregar planilha: ' + (error?.message || JSON.stringify(error)));
+            console.error(error);
+            toast.error('Erro ao carregar planilha: ' + (error?.message || 'desconhecido'));
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const updateScoutValue = async (memberId: string, field: string, delta: number) => {
-        if (!adjustmentRachaId) return;
+    useEffect(() => { loadData(); }, [loadData]);
 
-        setSavingId(`${memberId}-${field}`);
-        const supabase = createClient();
+    // Salva o total desejado ajustando o valor manual no racha mestre
+    const setTotal = async (memberId: string, field: Field, target: number) => {
+        const row = rowsRef.current.find(r => r.id === memberId);
+        if (!row || !masterId) return;
+        target = Math.max(0, Math.round(target));
+        const diff = target - row.total[field];
+        if (diff === 0) return;
 
-        try {
-            const member = members.find(m => m.id === memberId);
-            const manualField = `manual_${field}`;
-            const totalField = `total_${field}`;
+        const col = COLUMNS.find(c => c.key === field)!;
+        const newManual = row.manual[field] + diff;
+        const newMaster = newManual - row.manualOther[field];
+        const cellId = `${memberId}:${field}`;
 
-            const dbFieldMap: any = {
-                'goals': 'goals',
-                'assists': 'assists',
-                'saves': 'difficult_saves',
-                'presence': 'attendance_count',
-                'top1': 'top1_count',
-                'top2': 'top2_count',
-                'top3': 'top3_count',
-                'sheriff': 'sheriff_count'
-            };
+        // otimista
+        const apply = (total: number, manual: number) => setRows(prev => prev.map(r => r.id === memberId
+            ? { ...r, total: { ...r.total, [field]: total }, manual: { ...r.manual, [field]: manual } }
+            : r));
+        const prevTotal = row.total[field];
+        const prevManual = row.manual[field];
+        apply(target, newManual);
+        setCellState(s => ({ ...s, [cellId]: 'saving' }));
 
-            const dbField = dbFieldMap[field];
-            const newManualValue = Math.max(-1000, (member[manualField] || 0) + delta); // Permitir ajustes negativos se necessário
+        const { error } = await createClient()
+            .from('racha_scouts')
+            .upsert({ racha_id: masterId, member_id: memberId, [col.db]: newMaster }, { onConflict: 'racha_id,member_id' });
 
-            // 1. Atualizar Supabase (Salvamento automático)
-            const { error } = await supabase
-                .from('racha_scouts')
-                .upsert({
-                    racha_id: adjustmentRachaId,
-                    member_id: memberId,
-                    [dbField]: newManualValue
-                }, { onConflict: 'racha_id,member_id' });
-
-            if (error) throw error;
-
-            // 2. Atualizar estado local para feedback instantâneo
-            setMembers(prev => prev.map(m => {
-                if (m.id === memberId) {
-                    return {
-                        ...m,
-                        [manualField]: newManualValue,
-                        [totalField]: Math.max(0, (m[totalField] || 0) + delta)
-                    };
-                }
-                return m;
-            }));
-
-        } catch (error: any) {
-            console.error('Erro ao salvar ajuste:', error);
-        } finally {
-            setSavingId(null);
+        if (error) {
+            apply(prevTotal, prevManual);
+            setCellState(s => ({ ...s, [cellId]: 'error' }));
+            toast.error(`Erro ao salvar ${col.label} de ${row.name}: ${error.message}`);
+            return;
         }
+        setCellState(s => ({ ...s, [cellId]: 'saved' }));
+        setTimeout(() => setCellState(s => {
+            if (s[cellId] !== 'saved') return s;
+            const { [cellId]: _, ...rest } = s;
+            return rest;
+        }), 1200);
     };
 
-    const handleDirectUpdate = async (memberId: string, field: string, targetedTotal: number) => {
-        if (!adjustmentRachaId) return;
+    const visible = useMemo(() => {
+        const q = normalizeName(search);
+        let list = rows.filter(r => !q || normalizeName(r.name).includes(q));
+        if (onlyAdjusted) list = list.filter(r => COLUMNS.some(c => r.manual[c.key] !== 0));
+        const val = (r: Row) => sort.key === 'name' ? r.name : sort.key === 'titles' ? r.championship_wins : r.total[sort.key];
+        return [...list].sort((a, b) => {
+            const va = val(a), vb = val(b);
+            const cmp = typeof va === 'string' ? va.localeCompare(vb as string) : (va as number) - (vb as number);
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+    }, [rows, search, sort, onlyAdjusted]);
 
-        setSavingId(`${memberId}-${field}`);
-        const supabase = createClient();
+    const toggleSort = (key: SortKey) => setSort(s => s.key === key
+        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: key === 'name' ? 'asc' : 'desc' });
 
-        try {
-            const member = members.find(m => m.id === memberId);
-            const manualField = `manual_${field}`;
-            const totalField = `total_${field}`;
-
-            const dbFieldMap: any = {
-                'goals': 'goals',
-                'assists': 'assists',
-                'saves': 'difficult_saves',
-                'presence': 'attendance_count',
-                'top1': 'top1_count',
-                'top2': 'top2_count',
-                'top3': 'top3_count',
-                'sheriff': 'sheriff_count'
-            };
-
-            const dbField = dbFieldMap[field];
-
-            // Calcula quanto precisamos ajustar no manual para chegar no total desejado
-            const currentTotal = member[totalField] || 0;
-            const currentManual = member[manualField] || 0;
-            const diff = targetedTotal - currentTotal;
-            const newManualValue = currentManual + diff;
-
-            // 1. Atualizar Supabase (Salvamento automático)
-            const { error } = await supabase
-                .from('racha_scouts')
-                .upsert({
-                    racha_id: adjustmentRachaId,
-                    member_id: memberId,
-                    [dbField]: newManualValue
-                }, { onConflict: 'racha_id,member_id' });
-
-            if (error) throw error;
-
-            // 2. Atualizar estado local
-            setMembers(prev => prev.map(m => {
-                if (m.id === memberId) {
-                    return {
-                        ...m,
-                        [manualField]: newManualValue,
-                        [totalField]: targetedTotal
-                    };
-                }
-                return m;
-            }));
-
-        } catch (error: any) {
-            console.error('Erro ao salvar ajuste direto:', error);
-            alert('Erro ao salvar: ' + error.message);
-        } finally {
-            setSavingId(null);
-        }
-    };
-
-    const updateChampionshipWins = async (memberId: string, delta: number) => {
-        setSavingId(`${memberId}-championships`);
-        const supabase = createClient();
-        try {
-            const member = members.find(m => m.id === memberId);
-            const newValue = Math.max(0, (member.championship_wins || 0) + delta);
-            const { error } = await supabase.from('members').update({ championship_wins: newValue }).eq('id', memberId);
-            if (error) throw error;
-            setMembers(prev => prev.map(m => m.id === memberId ? { ...m, championship_wins: newValue } : m));
-        } catch (error: any) {
-            console.error('Erro ao salvar títulos:', error);
-        } finally {
-            setSavingId(null);
-        }
-    };
-
-    const updateChampionshipWinsDirect = async (memberId: string, value: number) => {
-        setSavingId(`${memberId}-championships`);
-        const supabase = createClient();
-        try {
-            const newValue = Math.max(0, value);
-            const { error } = await supabase.from('members').update({ championship_wins: newValue }).eq('id', memberId);
-            if (error) throw error;
-            setMembers(prev => prev.map(m => m.id === memberId ? { ...m, championship_wins: newValue } : m));
-        } catch (error: any) {
-            console.error('Erro ao salvar títulos:', error);
-        } finally {
-            setSavingId(null);
-        }
-    };
-
-    const filteredMembers = members.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-                <p className="text-gray-500 font-medium tracking-wide">Carregando planilha...</p>
-            </div>
-        );
-    }
+    const adjustedCount = rows.filter(r => COLUMNS.some(c => r.manual[c.key] !== 0)).length;
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-6 mt-10 lg:mt-0">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planilha de Ajustes (Geral)</h1>
-                    <p className="text-slate-500 font-medium">Os ajustes manuais são SOMADOS aos scouts automáticos dos rachas.</p>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900">Planilha de Scouts</h1>
+                    <p className="text-slate-500 mt-1 max-w-2xl text-sm">
+                        Totais oficiais de cada integrante, iguais aos do ranking. Ao editar um número, a diferença é
+                        guardada como <b>ajuste manual</b> — os scouts dos rachas não são alterados.
+                    </p>
                 </div>
-                <Button onClick={loadData} variant="outline" className="gap-2">
-                    <RefreshCcw size={16} /> Atualizar Tudo
+                <Button onClick={loadData} variant="outline" disabled={loading}>
+                    <RefreshCcw size={16} className={cn(loading && 'animate-spin')} /> Recarregar
                 </Button>
             </div>
 
-            <Card className="border-none shadow-xl bg-white overflow-hidden rounded-2xl">
-                <CardHeader className="border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 py-6">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                        <Users className="text-blue-600" size={24} />
-                        Lista de Jogadores
-                    </CardTitle>
-                    <div className="relative w-full md:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <Input
-                            placeholder="Buscar por nome..."
-                            className="pl-10 h-11 border-slate-200 focus:ring-blue-500 rounded-xl"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+            <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border-b border-slate-100">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Buscar integrante"
+                            className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
                         />
                     </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-slate-100">
-                                    <TableHead className="w-[180px] font-bold text-slate-500 uppercase text-[10px] tracking-widest pl-8">Integrante</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Jogos</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Gols</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Assis.</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Defesas</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Top 1</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Top 2</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Top 3</TableHead>
-                                    <TableHead className="text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest">Xerife</TableHead>
-                                    <TableHead className="text-center font-bold text-yellow-600 uppercase text-[10px] tracking-widest">🏆 Títulos</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredMembers.map((member) => (
-                                    <TableRow key={member.id} className="hover:bg-slate-50/30 transition-colors border-slate-100">
-                                        <TableCell className="pl-8 py-5">
-                                            <div className="font-bold text-slate-800 text-sm truncate max-w-[150px]">{member.name}</div>
-                                            <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{member.position || 'N/I'}</div>
-                                        </TableCell>
-
-                                        <TableCell><ScoutCell member={member} field="presence" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-presence`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="goals" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-goals`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="assists" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-assists`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="saves" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-saves`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top1" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top1`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top2" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top2`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="top3" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-top3`)} /></TableCell>
-                                        <TableCell><ScoutCell member={member} field="sheriff" onUpdate={updateScoutValue} onDirectUpdate={handleDirectUpdate} isSaving={savingId?.startsWith(`${member.id}-sheriff`)} /></TableCell>
-                                        <TableCell className="text-center">
-                                            <span className="font-black text-yellow-700 text-lg">{member.championship_wins || 0}</span>
-                                            {member.championship_wins > 0 && <span className="ml-1 text-sm">🏆</span>}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-3">
-                <div className="bg-emerald-600 p-2 rounded-lg">
-                    <CheckCircle className="text-white" size={20} />
+                    <button
+                        onClick={() => setOnlyAdjusted(v => !v)}
+                        className={cn(
+                            'inline-flex items-center gap-2 h-10 rounded-xl px-3 text-sm font-semibold ring-1 transition-colors',
+                            onlyAdjusted ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'text-slate-600 ring-slate-200 hover:bg-slate-50',
+                        )}
+                    >
+                        <SlidersHorizontal size={15} />
+                        Só com ajustes manuais
+                        <span className="rounded-full bg-white/80 px-1.5 text-xs ring-1 ring-current/10">{adjustedCount}</span>
+                    </button>
+                    <p className="sm:ml-auto text-xs text-slate-400">{visible.length} integrantes · salvamento automático</p>
                 </div>
-                <p className="text-emerald-800 text-sm font-bold">
-                    Salvamento Automático Ativo! Cada alteração é salva instantaneamente no banco de dados. Você também pode digitar os valores diretamente nos campos.
-                </p>
+
+                {loading && rows.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-500">
+                        <Loader2 className="animate-spin text-[#af1c15]" size={28} />
+                        Calculando totais...
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto max-h-[calc(100vh-15rem)]">
+                        <table className="w-full text-sm border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-20">
+                                <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                                    <Th sticky onClick={() => toggleSort('name')} active={sort.key === 'name'} dir={sort.dir} className="text-left pl-4 min-w-[11rem]">
+                                        Integrante
+                                    </Th>
+                                    {COLUMNS.map(c => (
+                                        <Th key={c.key} onClick={() => toggleSort(c.key)} active={sort.key === c.key} dir={sort.dir}>
+                                            <span className="mr-1">{c.emoji}</span>{c.label}
+                                        </Th>
+                                    ))}
+                                    <Th onClick={() => toggleSort('titles')} active={sort.key === 'titles'} dir={sort.dir}>🏆 Títulos</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visible.map(r => (
+                                    <tr key={r.id} className="group">
+                                        <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-b border-slate-100 pl-4 pr-3 py-2.5">
+                                            <div className="flex items-center gap-2.5">
+                                                {r.photo_url ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img src={r.photo_url} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                                                ) : (
+                                                    <span className="h-8 w-8 shrink-0 rounded-full bg-slate-900 text-white grid place-items-center text-[10px] font-bold">{initials(r.name)}</span>
+                                                )}
+                                                <div className="min-w-0">
+                                                    <p className="font-semibold text-slate-900 truncate max-w-[9rem]">{r.name}</p>
+                                                    {r.position && <p className="text-[10px] uppercase tracking-wide text-slate-400">{r.position}</p>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {COLUMNS.map(c => (
+                                            <td key={c.key} className="border-b border-slate-100 px-1.5 py-2 group-hover:bg-slate-50">
+                                                <Cell
+                                                    total={r.total[c.key]}
+                                                    manual={r.manual[c.key]}
+                                                    state={cellState[`${r.id}:${c.key}`]}
+                                                    label={`${c.label} de ${r.name}`}
+                                                    onCommit={v => setTotal(r.id, c.key, v)}
+                                                />
+                                            </td>
+                                        ))}
+                                        <td className="border-b border-slate-100 px-3 text-center group-hover:bg-slate-50">
+                                            <span className={cn('font-black tabular-nums', r.championship_wins ? 'text-yellow-600' : 'text-slate-300')}>
+                                                {r.championship_wins}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {visible.length === 0 && (
+                                    <tr><td colSpan={COLUMNS.length + 2} className="py-14 text-center text-slate-500">Nenhum integrante encontrado.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
+
+            <p className="text-xs text-slate-400">
+                Títulos são calculados automaticamente pelos campeonatos concluídos e não podem ser editados aqui.
+                O número pequeno abaixo de cada total indica quanto dele vem de ajuste manual.
+            </p>
         </div>
     );
 }
 
-function ChampCell({ member, onUpdate, onDirectUpdate, isSaving }: any) {
-    const [localValue, setLocalValue] = useState(member.championship_wins || 0);
+function Th({ children, onClick, active, dir, sticky, className }: {
+    children: React.ReactNode; onClick: () => void; active: boolean; dir: 'asc' | 'desc'; sticky?: boolean; className?: string;
+}) {
+    return (
+        <th className={cn(
+            'border-b border-slate-200 bg-slate-50 px-2 py-3 font-bold text-center whitespace-nowrap',
+            sticky && 'sticky left-0 z-30',
+            className,
+        )}>
+            <button onClick={onClick} className={cn('inline-flex items-center gap-1 hover:text-slate-900', active && 'text-slate-900')}>
+                {children}
+                {active && (dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+            </button>
+        </th>
+    );
+}
 
-    useEffect(() => {
-        setLocalValue(member.championship_wins || 0);
-    }, [member.championship_wins]);
+function Cell({ total, manual, state, label, onCommit }: {
+    total: number; manual: number; state?: 'saving' | 'saved' | 'error'; label: string; onCommit: (v: number) => void;
+}) {
+    const [draft, setDraft] = useState(String(total));
+    const [focused, setFocused] = useState(false);
 
-    const handleBlur = () => {
-        const numValue = parseInt(localValue);
-        if (!isNaN(numValue) && numValue !== member.championship_wins) {
-            onDirectUpdate(member.id, numValue);
-        } else {
-            setLocalValue(member.championship_wins || 0);
-        }
+    useEffect(() => { if (!focused) setDraft(String(total)); }, [total, focused]);
+
+    const commit = () => {
+        setFocused(false);
+        const n = parseInt(draft, 10);
+        if (Number.isNaN(n) || n < 0) { setDraft(String(total)); return; }
+        if (n !== total) onCommit(n);
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-    };
+    const busy = state === 'saving';
 
     return (
-        <div className="flex flex-col items-center justify-center gap-1">
-            <div className="flex items-center gap-1">
+        <div className="flex flex-col items-center">
+            <div className={cn(
+                'flex items-center rounded-lg ring-1 transition-colors',
+                state === 'error' ? 'ring-red-300 bg-red-50' : state === 'saved' ? 'ring-emerald-300 bg-emerald-50' : 'ring-transparent hover:ring-slate-200',
+            )}>
                 <button
-                    onClick={() => onUpdate(member.id, -1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-50 text-yellow-600 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm disabled:opacity-50"
-                    disabled={isSaving}
+                    onClick={() => onCommit(total - 1)}
+                    disabled={busy || total <= 0}
+                    aria-label={`Diminuir ${label}`}
+                    className="h-7 w-6 grid place-items-center text-slate-300 hover:text-red-600 disabled:opacity-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
                 >
-                    <Minus size={14} />
+                    <Minus size={13} />
                 </button>
-                <input
-                    type="text"
-                    value={isSaving ? '...' : localValue}
-                    onChange={e => setLocalValue(e.target.value)}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    disabled={isSaving}
-                    className={`w-11 h-8 text-center rounded-lg font-black text-sm border-2 bg-white transition-all
-                        ${isSaving ? 'border-dashed border-yellow-400 text-yellow-400 bg-yellow-50' : 'border-yellow-200 text-yellow-700 focus:border-yellow-500 focus:ring-0 focus:outline-none'}
-                    `}
-                />
+                <div className="relative">
+                    <input
+                        value={draft}
+                        inputMode="numeric"
+                        aria-label={label}
+                        onFocus={e => { setFocused(true); e.target.select(); }}
+                        onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={commit}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') { setDraft(String(total)); (e.target as HTMLInputElement).blur(); }
+                        }}
+                        className="w-11 h-8 rounded-md bg-transparent text-center font-black tabular-nums text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                    {busy && <Loader2 size={11} className="absolute -right-1 -top-1 animate-spin text-slate-400" />}
+                    {state === 'saved' && <Check size={11} className="absolute -right-1 -top-1 text-emerald-600" />}
+                </div>
                 <button
-                    onClick={() => onUpdate(member.id, 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-500 text-white hover:bg-yellow-600 transition-colors shadow-sm disabled:opacity-50"
-                    disabled={isSaving}
+                    onClick={() => onCommit(total + 1)}
+                    disabled={busy}
+                    aria-label={`Aumentar ${label}`}
+                    className="h-7 w-6 grid place-items-center text-slate-300 hover:text-emerald-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
                 >
-                    <Plus size={14} />
+                    <Plus size={13} />
                 </button>
             </div>
+            <span className={cn('h-3 text-[10px] font-bold tabular-nums leading-3', manual > 0 ? 'text-amber-600' : manual < 0 ? 'text-sky-600' : 'text-transparent')}>
+                {manual !== 0 ? `${manual > 0 ? '+' : ''}${manual} manual` : '·'}
+            </span>
         </div>
     );
 }
 
-function ScoutCell({ member, field, onUpdate, onDirectUpdate, isSaving }: any) {
-    const totalField = `total_${field}`;
-    const [localValue, setLocalValue] = useState(member[totalField] || 0);
-
-    // Sincronizar valor local quando o membro mudar
-    useEffect(() => {
-        setLocalValue(member[totalField] || 0);
-    }, [member[totalField]]);
-
-    const handleBlur = () => {
-        const numValue = parseInt(localValue);
-        if (!isNaN(numValue) && numValue !== member[totalField]) {
-            onDirectUpdate(member.id, field, numValue);
-        } else {
-            setLocalValue(member[totalField] || 0);
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            (e.target as HTMLInputElement).blur();
-        }
-    };
-
-    return (
-        <div className="flex flex-col items-center justify-center gap-1">
-            <div className="flex items-center gap-1">
-                <button
-                    onClick={() => onUpdate(member.id, field, -1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm disabled:opacity-50"
-                    disabled={isSaving}
-                >
-                    <Minus size={14} />
-                </button>
-
-                <input
-                    type="text"
-                    value={isSaving ? '...' : localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    disabled={isSaving}
-                    className={`w-11 h-8 text-center rounded-lg font-black text-sm border-2 bg-white transition-all
-                        ${isSaving ? 'border-dashed border-blue-400 text-blue-400 bg-blue-50' : 'border-slate-100 text-slate-800 focus:border-blue-500 focus:ring-0 focus:outline-none'}
-                    `}
-                />
-
-                <button
-                    onClick={() => onUpdate(member.id, field, 1)}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50`}
-                    disabled={isSaving}
-                >
-                    <Plus size={14} />
-                </button>
-            </div>
-        </div>
-    );
+// Títulos por integrante (manual > final > classificação)
+async function loadChampionshipWins(supabase: ReturnType<typeof createClient>) {
+    return countTitlesByMember(await loadChampionTeams(supabase));
 }

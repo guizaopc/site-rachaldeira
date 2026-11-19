@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BracketViewer } from '@/components/bracket-viewer';
+import { AWARDS_SELECT, groupAwards } from '@/lib/championship-awards';
 export default async function CampeonatoDetalhesPage({ params }: { params: Promise<{ campId: string }> }) {
     const { campId } = await params;
     const supabase = await createClient();
@@ -13,14 +14,7 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
     // Buscar campeonato com destaques
     const { data: championship } = await supabase
         .from('championships')
-        .select(`
-            *,
-            craque:craque_id(id, name, photo_url, position),
-            xerifao:xerifao_id(id, name, photo_url, position),
-            paredao:paredao_id(id, name, photo_url, position),
-            garcom:garcom_id(id, name, photo_url, position),
-            artilheiro:artilheiro_id(id, name, photo_url, position)
-        `)
+        .select(`*, ${AWARDS_SELECT}`)
         .eq('id', campId)
         .single();
 
@@ -118,13 +112,16 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
         }
     }
 
-    const highlightCards = [
-        { title: 'CRAQUE', member: championship.craque, icon: <Star className="text-yellow-500" />, color: 'from-yellow-500 to-yellow-600' },
-        { title: 'ARTILHEIRO', member: championship.artilheiro, icon: <Crosshair className="text-red-500" />, color: 'from-red-500 to-red-600' },
-        { title: 'XERIFÃO', member: championship.xerifao, icon: <Shield className="text-blue-500" />, color: 'from-blue-500 to-blue-600' },
-        { title: 'PAREDÃO', member: championship.paredao, icon: <HandMetal className="text-orange-500" />, color: 'from-orange-500 to-orange-600' },
-        { title: 'GARÇOM', member: championship.garcom, icon: <Beer className="text-green-500" />, color: 'from-green-500 to-green-600' },
-    ];
+    const awards = groupAwards((championship as any).awards);
+    const awardStyle = [
+        { key: 'craque', title: 'CRAQUE', icon: <Star className="text-yellow-500" />, color: 'from-yellow-500 to-yellow-600' },
+        { key: 'artilheiro', title: 'ARTILHEIRO', icon: <Crosshair className="text-red-500" />, color: 'from-red-500 to-red-600' },
+        { key: 'xerifao', title: 'XERIFÃO', icon: <Shield className="text-blue-500" />, color: 'from-blue-500 to-blue-600' },
+        { key: 'paredao', title: 'PAREDÃO', icon: <HandMetal className="text-orange-500" />, color: 'from-orange-500 to-orange-600' },
+        { key: 'garcom', title: 'GARÇOM', icon: <Beer className="text-green-500" />, color: 'from-green-500 to-green-600' },
+    ] as const;
+    // Um card por jogador premiado (prêmios podem ter mais de um vencedor)
+    const highlightCards = awardStyle.flatMap(s => awards[s.key].map(member => ({ ...s, member })));
 
     return (
         <main className="min-h-screen bg-gray-50 pb-20">
@@ -154,13 +151,13 @@ export default async function CampeonatoDetalhesPage({ params }: { params: Promi
                 </div>
 
                 {/* Highlights Section */}
-                {(championship.craque_id || championship.artilheiro_id || championship.xerifao_id || championship.paredao_id || championship.garcom_id) && (
+                {highlightCards.length > 0 && (
                     <div className="mb-12">
                         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                             🏆 Destaques do Campeonato
                         </h2>
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                            {highlightCards.map((card, i) => card.member && (
+                            {highlightCards.map((card, i) => (
                                 <div key={i} className="group relative overflow-hidden bg-white rounded-2xl shadow-md border border-gray-100 transition-all hover:scale-[1.02] hover:shadow-xl">
                                     <div className={`h-1.5 w-full bg-gradient-to-r ${card.color}`} />
                                     <div className="p-4 flex flex-col items-center text-center">

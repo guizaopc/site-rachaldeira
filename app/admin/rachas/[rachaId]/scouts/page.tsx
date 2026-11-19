@@ -1,1004 +1,846 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useMemo, useRef, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+    ArrowLeft, Camera, Check, ChevronDown, Loader2, Lock, MapPin, Minus, Plus, RotateCcw,
+    Search, Trophy, UserPlus, X, CalendarDays, AlertTriangle, Users, Save,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Minus, Play, X, Trophy, Shield, Medal, RotateCcw, Check, AlertCircle, Camera, Upload, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { SCOUT_FIELDS, ScoutField, initials, matchMemberByName, normalizeName } from '@/lib/scouts';
+
+type Member = { id: string; name: string; position: string | null; photo_url: string | null; is_active?: boolean };
+type ScoutRow = Member & { member_id: string } & Record<ScoutField, number>;
+type HighlightKey = 'top1' | 'top2' | 'top3' | 'sheriff';
+type Highlights = Record<HighlightKey, string[]>;
+type ParsedRow = { photoName: string; member_id: string | null; include: boolean } & Record<ScoutField, number>;
+
+const HIGHLIGHTS: { key: HighlightKey; label: string; emoji: string; cols: [string, string, string]; ring: string }[] = [
+    { key: 'top1', label: 'Craque · Top 1', emoji: '🥇', cols: ['top1_id', 'top1_extra_id', 'top1_extra2_id'], ring: 'bg-yellow-400 text-yellow-950 border-yellow-400' },
+    { key: 'top2', label: 'Top 2', emoji: '🥈', cols: ['top2_id', 'top2_extra_id', 'top2_extra2_id'], ring: 'bg-slate-300 text-slate-900 border-slate-300' },
+    { key: 'top3', label: 'Top 3', emoji: '🥉', cols: ['top3_id', 'top3_extra_id', 'top3_extra2_id'], ring: 'bg-orange-300 text-orange-950 border-orange-300' },
+    { key: 'sheriff', label: 'Xerife', emoji: '🤠', cols: ['sheriff_id', 'sheriff_extra_id', 'sheriff_extra2_id'], ring: 'bg-[#af1c15] text-white border-[#af1c15]' },
+];
+
+const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+    open: { label: 'Confirmações abertas', cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' },
+    locked: { label: 'Lista travada', cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30' },
+    in_progress: { label: 'Em andamento', cls: 'bg-sky-500/15 text-sky-300 ring-sky-500/30' },
+    closed: { label: 'Encerrado', cls: 'bg-slate-500/20 text-slate-300 ring-slate-400/30' },
+};
+
+const statsKey = (s: Record<ScoutField, number>) => SCOUT_FIELDS.map(f => s[f.key] || 0).join('|');
+const highlightsKey = (h: Highlights) => HIGHLIGHTS.map(c => h[c.key].join(',')).join('|');
+
+// Reduz fotos grandes do celular antes de enviar (limite da API é ~5 MB)
+async function imageToBase64(file: File): Promise<{ base64: string; mediaType: string }> {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Não foi possível ler a imagem'));
+        reader.readAsDataURL(file);
+    });
+    try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const el = new Image();
+            el.onload = () => resolve(el);
+            el.onerror = () => reject(new Error('Formato de imagem não suportado'));
+            el.src = dataUrl;
+        });
+        const MAX = 2000;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const out = canvas.toDataURL('image/jpeg', 0.85);
+        return { base64: out.split(',')[1], mediaType: 'image/jpeg' };
+    } catch {
+        return { base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' };
+    }
+}
 
 export default function ScoutsPage({ params }: { params: Promise<{ rachaId: string }> }) {
     const { rachaId } = use(params);
     const router = useRouter();
-    const [racha, setRacha] = useState<any>(null);
-    const [attendance, setAttendance] = useState<any[]>([]);
-    const [scouts, setScouts] = useState<any[]>([]);
-    const [members, setMembers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [addMemberId, setAddMemberId] = useState('');
-    const [photoModalOpen, setPhotoModalOpen] = useState(false);
-    const [parsedPlayers, setParsedPlayers] = useState<any[]>([]);
-    const [parsingPhoto, setParsingPhoto] = useState(false);
-    const [parseError, setParseError] = useState('');
 
-    const [highlights, setHighlights] = useState({
-        top1_id: '',
-        top1_extra_id: '',
-        top1_extra2_id: '',
-        top2_id: '',
-        top2_extra_id: '',
-        top2_extra2_id: '',
-        top3_id: '',
-        top3_extra_id: '',
-        top3_extra2_id: '',
-        sheriff_id: '',
-        sheriff_extra_id: '',
-        sheriff_extra2_id: '',
-    });
+    const [racha, setRacha] = useState<any>(null);
+    const [members, setMembers] = useState<Member[]>([]);
+    const [scouts, setScouts] = useState<ScoutRow[]>([]);
+    const [savedStats, setSavedStats] = useState<Record<string, string>>({});
+    const [highlights, setHighlights] = useState<Highlights>({ top1: [], top2: [], top3: [], sheriff: [] });
+    const [savedHighlights, setSavedHighlights] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState<null | 'save' | 'close' | 'status' | 'roster'>(null);
+    const [search, setSearch] = useState('');
+    const [closeOpen, setCloseOpen] = useState(false);
+
+    const [parsing, setParsing] = useState(false);
+    const [parsedRows, setParsedRows] = useState<ParsedRow[] | null>(null);
+
+    // ---------- carregamento ----------
+    const loadData = useCallback(async () => {
+        const supabase = createClient();
+        const [rachaRes, membersRes, attRes, scoutsRes] = await Promise.all([
+            supabase.from('rachas').select('*').eq('id', rachaId).single(),
+            supabase.from('members').select('id, name, position, photo_url, is_active').order('name'),
+            supabase.from('racha_attendance')
+                .select('member_id, members:member_id (id, name, position, photo_url)')
+                .eq('racha_id', rachaId).eq('status', 'in'),
+            supabase.from('racha_scouts').select('*').eq('racha_id', rachaId),
+        ]);
+
+        if (rachaRes.error || !rachaRes.data) {
+            setRacha(null);
+            setLoading(false);
+            return;
+        }
+        const r = rachaRes.data;
+        setRacha(r);
+        setMembers((membersRes.data || []) as Member[]);
+
+        const dbScouts = scoutsRes.data || [];
+        const rows: ScoutRow[] = (attRes.data || []).map((att: any) => {
+            const s = dbScouts.find((x: any) => x.member_id === att.member_id);
+            const m = att.members || {};
+            return {
+                id: att.member_id,
+                member_id: att.member_id,
+                name: m.name || 'Membro desconhecido',
+                position: m.position || null,
+                photo_url: m.photo_url || null,
+                goals: s?.goals || 0,
+                assists: s?.assists || 0,
+                difficult_saves: s?.difficult_saves || 0,
+                warnings: s?.warnings || 0,
+            };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
+        setScouts(rows);
+        setSavedStats(Object.fromEntries(rows.map(s => [s.member_id, statsKey(s)])));
+
+        const h = Object.fromEntries(HIGHLIGHTS.map(c => [
+            c.key,
+            Array.from(new Set(c.cols.map(col => r[col]).filter(Boolean))),
+        ])) as Highlights;
+        setHighlights(h);
+        setSavedHighlights(highlightsKey(h));
+        setLoading(false);
+    }, [rachaId]);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    // ---------- estado derivado ----------
+    const dirtyIds = useMemo(
+        () => new Set(scouts.filter(s => savedStats[s.member_id] !== statsKey(s)).map(s => s.member_id)),
+        [scouts, savedStats],
+    );
+    const highlightsDirty = highlightsKey(highlights) !== savedHighlights;
+    const isDirty = dirtyIds.size > 0 || highlightsDirty;
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (!isDirty) return;
+        const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
 
-    const loadData = async () => {
-        const supabase = createClient();
+    const totals = useMemo(() => Object.fromEntries(SCOUT_FIELDS.map(f => [
+        f.key, scouts.reduce((acc, s) => acc + (s[f.key] || 0), 0),
+    ])) as Record<ScoutField, number>, [scouts]);
 
-        // Verificar admin
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', user.id)
-                .single();
-            setIsAdmin(profile?.role === 'admin' || profile?.role === 'director');
-        }
+    const visibleScouts = useMemo(() => {
+        const q = normalizeName(search);
+        return q ? scouts.filter(s => normalizeName(s.name).includes(q)) : scouts;
+    }, [scouts, search]);
 
-        // Buscar racha
-        const { data: rachaData } = await supabase
-            .from('rachas')
-            .select('*')
-            .eq('id', rachaId)
-            .single();
+    const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
-        setRacha(rachaData);
-        setHighlights({
-            top1_id: rachaData?.top1_id || 'none',
-            top1_extra_id: rachaData?.top1_extra_id || 'none',
-            top1_extra2_id: rachaData?.top1_extra2_id || 'none',
-            top2_id: rachaData?.top2_id || 'none',
-            top2_extra_id: rachaData?.top2_extra_id || 'none',
-            top2_extra2_id: rachaData?.top2_extra2_id || 'none',
-            top3_id: rachaData?.top3_id || 'none',
-            top3_extra_id: rachaData?.top3_extra_id || 'none',
-            top3_extra2_id: rachaData?.top3_extra2_id || 'none',
-            sheriff_id: rachaData?.sheriff_id || 'none',
-            sheriff_extra_id: rachaData?.sheriff_extra_id || 'none',
-            sheriff_extra2_id: rachaData?.sheriff_extra2_id || 'none',
-        });
-
-        // Buscar todos os membros (para a lista de busca/avulsos)
-        const { data: allMembers } = await supabase
-            .from('members')
-            .select('id, name, position')
-            .eq('is_active', true)
-            .order('name');
-
-        setMembers(allMembers || []);
-
-        // Buscar confirmados "in"
-        const { data: attendanceData } = await supabase
-            .from('racha_attendance')
-            .select(`
-                *,
-                members:member_id (id, name, position)
-            `)
-            .eq('racha_id', rachaId)
-            .eq('status', 'in');
-
-        setAttendance(attendanceData || []);
-
-        // Buscar scouts existentes
-        const { data: scoutsData } = await supabase
-            .from('racha_scouts')
-            .select('*')
-            .eq('racha_id', rachaId);
-
-        const dbScouts = scoutsData || [];
-
-        const consolidatedScouts = (attendanceData || [])
-            .map(att => {
-                const existingScout = dbScouts.find(s => s.member_id === att.member_id);
-                return {
-                    racha_id: rachaId,
-                    member_id: att.member_id,
-                    goals: existingScout?.goals || 0,
-                    assists: existingScout?.assists || 0,
-                    difficult_saves: existingScout?.difficult_saves || 0,
-                    warnings: existingScout?.warnings || 0,
-                    name: att.members?.name || 'Membro desconhecido'
-                };
-            })
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-        setScouts(consolidatedScouts);
-        setLoading(false);
+    // ---------- scouts ----------
+    const bump = (memberId: string, field: ScoutField, delta: number) => {
+        setScouts(prev => prev.map(s => s.member_id === memberId
+            ? { ...s, [field]: Math.max(0, (s[field] || 0) + delta) }
+            : s));
     };
 
-    const handleSaveManual = async () => {
-        setSaving(true);
+    const addPlayers = async (ids: string[]) => {
+        const newIds = ids.filter(id => !scouts.some(s => s.member_id === id));
+        if (newIds.length === 0) return true;
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('racha_attendance')
+            .upsert(newIds.map(id => ({ racha_id: rachaId, member_id: id, status: 'in' })), { onConflict: 'racha_id,member_id' });
+        if (error) {
+            toast.error('Erro ao adicionar jogador: ' + error.message);
+            return false;
+        }
+        const zero = { goals: 0, assists: 0, difficult_saves: 0, warnings: 0 };
+        setScouts(prev => [...prev, ...newIds.map(id => {
+            const m = memberById.get(id)!;
+            return { ...m, member_id: id, ...zero };
+        })].sort((a, b) => a.name.localeCompare(b.name)));
+        setSavedStats(prev => ({ ...prev, ...Object.fromEntries(newIds.map(id => [id, statsKey(zero)])) }));
+        return true;
+    };
+
+    const handleAdd = async (id: string) => {
+        setBusy('roster');
+        const ok = await addPlayers([id]);
+        setBusy(null);
+        if (ok) toast.success(`${memberById.get(id)?.name} adicionado à lista`);
+    };
+
+    const handleRemove = async (row: ScoutRow) => {
+        if (!confirm(`Remover ${row.name} deste racha? Os scouts dele neste racha serão apagados.`)) return;
+        setBusy('roster');
+        const supabase = createClient();
+        const [att, sc] = await Promise.all([
+            supabase.from('racha_attendance').update({ status: 'out' }).eq('racha_id', rachaId).eq('member_id', row.member_id),
+            supabase.from('racha_scouts').delete().eq('racha_id', rachaId).eq('member_id', row.member_id),
+        ]);
+        setBusy(null);
+        const error = att.error || sc.error;
+        if (error) {
+            toast.error('Erro ao remover jogador: ' + error.message);
+            return;
+        }
+        setScouts(prev => prev.filter(s => s.member_id !== row.member_id));
+        setHighlights(prev => Object.fromEntries(HIGHLIGHTS.map(c => [c.key, prev[c.key].filter(id => id !== row.member_id)])) as Highlights);
+        toast.success(`${row.name} removido`);
+    };
+
+    // ---------- destaques ----------
+    const toggleHighlight = (cat: HighlightKey, memberId: string) => {
+        setHighlights(prev => {
+            const list = prev[cat];
+            if (list.includes(memberId)) return { ...prev, [cat]: list.filter(id => id !== memberId) };
+            if (list.length >= 3) {
+                toast.warning('Máximo de 3 jogadores por destaque');
+                return prev;
+            }
+            return { ...prev, [cat]: [...list, memberId] };
+        });
+    };
+
+    const highlightPayload = () => {
+        const out: Record<string, string | null> = {};
+        for (const c of HIGHLIGHTS) c.cols.forEach((col, i) => { out[col] = highlights[c.key][i] || null; });
+        return out;
+    };
+
+    // ---------- salvar / encerrar ----------
+    const persist = async (close: boolean) => {
+        setBusy(close ? 'close' : 'save');
         const supabase = createClient();
         try {
-            // Salvar todos os scouts em lote
-            for (const s of scouts) {
-                await supabase
-                    .from('racha_scouts')
-                    .upsert({
+            if (scouts.length > 0) {
+                const { error } = await supabase.from('racha_scouts').upsert(
+                    scouts.map(s => ({
                         racha_id: rachaId,
                         member_id: s.member_id,
                         goals: s.goals,
                         assists: s.assists,
                         difficult_saves: s.difficult_saves,
                         warnings: s.warnings,
-                    }, { onConflict: 'racha_id,member_id' });
-            }
-            alert('Scouts salvos com sucesso!');
-        } catch (error: any) {
-            alert('Erro ao salvar: ' + error.message);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const updateScout = (memberId: string, field: string, delta: number) => {
-        setScouts(prev => {
-            return prev.map(s => {
-                if (s.member_id === memberId) {
-                    const newVal = Math.max(0, (s[field] || 0) + delta);
-                    return { ...s, [field]: newVal };
-                }
-                return s;
-            });
-        });
-    };
-
-    const handleAddPlayerManually = async () => {
-        if (!addMemberId) return;
-        const alreadyIn = scouts.some(s => s.member_id === addMemberId);
-        if (alreadyIn) {
-            alert('Este jogador já está na lista de presentes.');
-            return;
-        }
-        const supabase = createClient();
-        const { error } = await supabase
-            .from('racha_attendance')
-            .upsert({ racha_id: rachaId, member_id: addMemberId, status: 'in' }, { onConflict: 'racha_id,member_id' });
-        if (error) {
-            alert('Erro ao adicionar jogador: ' + error.message);
-            return;
-        }
-        setAddMemberId('');
-        loadData();
-    };
-
-    const handleRemovePlayer = async (memberId: string) => {
-        if (!confirm('Remover este jogador da lista de presentes?')) return;
-        const supabase = createClient();
-        const { error } = await supabase
-            .from('racha_attendance')
-            .update({ status: 'out' })
-            .eq('racha_id', rachaId)
-            .eq('member_id', memberId);
-        if (error) {
-            alert('Erro ao remover jogador: ' + error.message);
-            return;
-        }
-        loadData();
-    };
-
-    const filteredScouts = scouts.filter(s => {
-        const member = members.find(m => m.id === s.member_id);
-        return member?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    });
-
-    const handleSaveHighlightsOnly = async () => {
-        setSaving(true);
-        const supabase = createClient();
-        try {
-            const { error: hlError } = await supabase
-                .from('rachas')
-                .update({
-                    top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
-                    top1_extra_id: highlights.top1_extra_id && highlights.top1_extra_id !== 'none' ? highlights.top1_extra_id : null,
-                    top1_extra2_id: highlights.top1_extra2_id && highlights.top1_extra2_id !== 'none' ? highlights.top1_extra2_id : null,
-                    top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
-                    top2_extra_id: highlights.top2_extra_id && highlights.top2_extra_id !== 'none' ? highlights.top2_extra_id : null,
-                    top2_extra2_id: highlights.top2_extra2_id && highlights.top2_extra2_id !== 'none' ? highlights.top2_extra2_id : null,
-                    top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
-                    top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
-                    top3_extra2_id: highlights.top3_extra2_id && highlights.top3_extra2_id !== 'none' ? highlights.top3_extra2_id : null,
-                    sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
-                    sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
-                    sheriff_extra2_id: highlights.sheriff_extra2_id && highlights.sheriff_extra2_id !== 'none' ? highlights.sheriff_extra2_id : null,
-                })
-                .eq('id', rachaId);
-
-            if (hlError) throw hlError;
-            alert('Destaques atualizados com sucesso!');
-        } catch (error: any) {
-            alert('Erro ao salvar destaques: ' + error.message);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-
-    const handleCloseAndSaveRacha = async () => {
-        if (!confirm('Tem certeza que deseja SALVAR os scouts e FECHAR este racha? O status mudará para "closed" e a pontuação será oficializada.')) return;
-
-        setSaving(true);
-        const supabase = createClient();
-
-        try {
-            // 1. PRIMEIRO: Salvar os scouts (Lógica do handleSaveManual)
-            for (const s of scouts) {
-                await supabase
-                    .from('racha_scouts')
-                    .upsert({
-                        racha_id: rachaId,
-                        member_id: s.member_id,
-                        goals: s.goals,
-                        assists: s.assists,
-                        difficult_saves: s.difficult_saves,
-                        warnings: s.warnings,
-                    }, { onConflict: 'racha_id,member_id' });
+                    })),
+                    { onConflict: 'racha_id,member_id' },
+                );
+                if (error) throw new Error('scouts: ' + error.message);
             }
 
-            // 2. SEGUNDO: Fechar o racha e salvar destaques
-            await supabase
-                .from('rachas')
-                .update({
-                    top1_id: highlights.top1_id && highlights.top1_id !== 'none' ? highlights.top1_id : null,
-                    top1_extra_id: highlights.top1_extra_id && highlights.top1_extra_id !== 'none' ? highlights.top1_extra_id : null,
-                    top1_extra2_id: highlights.top1_extra2_id && highlights.top1_extra2_id !== 'none' ? highlights.top1_extra2_id : null,
-                    top2_id: highlights.top2_id && highlights.top2_id !== 'none' ? highlights.top2_id : null,
-                    top2_extra_id: highlights.top2_extra_id && highlights.top2_extra_id !== 'none' ? highlights.top2_extra_id : null,
-                    top2_extra2_id: highlights.top2_extra2_id && highlights.top2_extra2_id !== 'none' ? highlights.top2_extra2_id : null,
-                    top3_id: highlights.top3_id && highlights.top3_id !== 'none' ? highlights.top3_id : null,
-                    top3_extra_id: highlights.top3_extra_id && highlights.top3_extra_id !== 'none' ? highlights.top3_extra_id : null,
-                    top3_extra2_id: highlights.top3_extra2_id && highlights.top3_extra2_id !== 'none' ? highlights.top3_extra2_id : null,
-                    sheriff_id: highlights.sheriff_id && highlights.sheriff_id !== 'none' ? highlights.sheriff_id : null,
-                    sheriff_extra_id: highlights.sheriff_extra_id && highlights.sheriff_extra_id !== 'none' ? highlights.sheriff_extra_id : null,
-                    sheriff_extra2_id: highlights.sheriff_extra2_id && highlights.sheriff_extra2_id !== 'none' ? highlights.sheriff_extra2_id : null,
-                    status: 'closed'
-                })
-                .eq('id', rachaId);
+            const update: Record<string, any> = highlightPayload();
+            let createdNext = false;
 
-            // If racha is recurring, create the next one
-            if (racha.periodicity === 'weekly' || racha.periodicity === 'monthly') {
-                const currentDate = new Date(racha.date_time);
-                const nextDate = new Date(currentDate);
+            if (close) {
+                update.status = 'closed';
+                if (racha.periodicity === 'weekly' || racha.periodicity === 'monthly') {
+                    const next = new Date(racha.date_time);
+                    if (racha.periodicity === 'weekly') next.setDate(next.getDate() + 7);
+                    else next.setMonth(next.getMonth() + 1);
 
-                if (racha.periodicity === 'weekly') {
-                    nextDate.setDate(nextDate.getDate() + 7);
-                } else if (racha.periodicity === 'monthly') {
-                    nextDate.setMonth(nextDate.getMonth() + 1);
+                    // Evita duplicar o próximo racha se este já foi encerrado antes
+                    const { data: existing } = await supabase
+                        .from('rachas').select('id').eq('date_time', next.toISOString()).limit(1);
+                    if (!existing || existing.length === 0) {
+                        const { error } = await supabase.from('rachas').insert({
+                            name: racha.name,
+                            date_time: next.toISOString(),
+                            location: racha.location,
+                            periodicity: racha.periodicity,
+                            status: 'open',
+                            is_next: !!racha.is_next,
+                        });
+                        if (error) throw new Error('próximo racha: ' + error.message);
+                        createdNext = true;
+                        if (racha.is_next) update.is_next = false;
+                    }
                 }
-
-                await supabase
-                    .from('rachas')
-                    .insert({
-                        name: racha.name,
-                        date_time: nextDate.toISOString(),
-                        location: racha.location,
-                        periodicity: racha.periodicity,
-                        status: 'open',
-                    });
             }
 
-            alert('Scouts salvos e racha fechado com sucesso!' +
-                (racha.periodicity !== 'once' ? ' Próximo racha criado automaticamente!' : ''));
-            router.push('/admin/rachas');
-        } catch (error: any) {
-            alert('Erro ao fechar racha: ' + error.message);
-        } finally {
-            setSaving(false);
-        }
-    };
+            const { error: rErr } = await supabase.from('rachas').update(update).eq('id', rachaId);
+            if (rErr) throw new Error('racha: ' + rErr.message);
 
-    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+            setSavedStats(Object.fromEntries(scouts.map(s => [s.member_id, statsKey(s)])));
+            setSavedHighlights(highlightsKey(highlights));
 
-        setParsingPhoto(true);
-        setParseError('');
-        setParsedPlayers([]);
-
-        try {
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const dataUrl = ev.target?.result as string;
-                const base64 = dataUrl.split(',')[1];
-                const mediaType = file.type || 'image/jpeg';
-
-                const res = await fetch('/api/admin/parse-scouts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageBase64: base64, mediaType }),
-                });
-
-                const data = await res.json();
-                if (!res.ok) {
-                    setParseError(data.error || 'Erro ao processar imagem');
-                    setParsingPhoto(false);
-                    return;
-                }
-
-                const players = (data.players || []).map((p: any) => {
-                    const matched = members.find(m =>
-                        m.name.toLowerCase().trim() === p.name.toLowerCase().trim()
-                    );
-                    return {
-                        ...p,
-                        member_id: matched?.id || null,
-                        matched_name: matched?.name || null,
-                        status: matched ? 'matched' : 'unmatched',
-                    };
-                });
-
-                setParsedPlayers(players);
-                setParsingPhoto(false);
-                setPhotoModalOpen(true);
-            };
-            reader.readAsDataURL(file);
+            if (close) {
+                toast.success('Racha encerrado e scouts oficializados!' + (createdNext ? ' Próximo racha criado.' : ''));
+                setCloseOpen(false);
+                router.push('/admin/rachas');
+            } else {
+                setRacha((r: any) => ({ ...r, ...update }));
+                toast.success('Scouts e destaques salvos');
+            }
         } catch (err: any) {
-            setParseError(err.message);
-            setParsingPhoto(false);
+            toast.error('Erro ao salvar ' + err.message);
+        } finally {
+            setBusy(null);
         }
+    };
 
+    const changeStatus = async (status: string, msg: string) => {
+        if (isDirty && !confirm('Há alterações não salvas que serão mantidas na tela. Continuar?')) return;
+        setBusy('status');
+        const supabase = createClient();
+        const { error } = await supabase.from('rachas').update({ status }).eq('id', rachaId);
+        setBusy(null);
+        if (error) return toast.error('Erro: ' + error.message);
+        setRacha((r: any) => ({ ...r, status }));
+        toast.success(msg);
+    };
+
+    // ---------- importação por foto ----------
+    const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         e.target.value = '';
-    };
-
-    const handleApplyParsed = () => {
-        const matched = parsedPlayers.filter(p => p.status === 'matched');
-        setScouts(prev => {
-            const updated = [...prev];
-            for (const p of matched) {
-                const idx = updated.findIndex(s => s.member_id === p.member_id);
-                if (idx >= 0) {
-                    updated[idx] = {
-                        ...updated[idx],
-                        goals: p.goals,
-                        assists: p.assists,
-                        difficult_saves: p.difficult_saves,
-                        warnings: p.warnings,
-                    };
-                }
-            }
-            return updated;
-        });
-        setPhotoModalOpen(false);
-        setParsedPlayers([]);
-    };
-
-    const handleReopenRacha = async () => {
-        if (!confirm('Deseja reabrir este racha? Isso permitirá editar os scouts numéricos novamente.')) return;
-
-        setSaving(true);
-        const supabase = createClient();
+        if (!file) return;
+        setParsing(true);
         try {
-            const { error } = await supabase
-                .from('rachas')
-                .update({ status: 'in_progress' })
-                .eq('id', rachaId);
+            const { base64, mediaType } = await imageToBase64(file);
+            const res = await fetch('/api/admin/parse-scouts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: base64, mediaType }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Erro ao processar imagem');
 
-            if (error) throw error;
-            alert('Racha reaberto com sucesso!');
-            loadData();
-        } catch (error: any) {
-            alert('Erro ao reabrir racha: ' + error.message);
+            const players: any[] = Array.isArray(data.players) ? data.players : [];
+            if (players.length === 0) throw new Error('Nenhum jogador encontrado na foto');
+
+            const present = scouts.map(s => ({ id: s.member_id, name: s.name }));
+            setParsedRows(players.map(p => {
+                const match = matchMemberByName(String(p.name || ''), present, members);
+                const n = (v: any) => Math.max(0, parseInt(v) || 0);
+                return {
+                    photoName: String(p.name || '?'),
+                    member_id: match?.id || null,
+                    include: !!match,
+                    goals: n(p.goals),
+                    assists: n(p.assists),
+                    difficult_saves: n(p.difficult_saves),
+                    warnings: n(p.warnings),
+                };
+            }));
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao processar imagem');
         } finally {
-            setSaving(false);
+            setParsing(false);
         }
     };
 
-    const handleOpenConfirmations = async () => {
-        if (!confirm('Deseja reabrir as confirmações para este racha? Isso mudará o status para "Aberto".')) return;
-
-        setSaving(true);
-        const supabase = createClient();
-        try {
-            const { error } = await supabase
-                .from('rachas')
-                .update({ status: 'open' })
-                .eq('id', rachaId);
-
-            if (error) throw error;
-            alert('Confirmações reabertas!');
-            loadData();
-        } catch (error: any) {
-            alert('Erro ao abrir confirmações: ' + error.message);
-        } finally {
-            setSaving(false);
-        }
+    const applyParsed = async () => {
+        if (!parsedRows) return;
+        const rows = parsedRows.filter(r => r.include && r.member_id);
+        const byMember = new Map(rows.map(r => [r.member_id!, r]));
+        setBusy('roster');
+        const ok = await addPlayers(Array.from(byMember.keys()));
+        setBusy(null);
+        if (!ok) return;
+        setScouts(prev => prev.map(s => {
+            const r = byMember.get(s.member_id);
+            return r ? { ...s, goals: r.goals, assists: r.assists, difficult_saves: r.difficult_saves, warnings: r.warnings } : s;
+        }));
+        setParsedRows(null);
+        toast.success(`${byMember.size} jogadores preenchidos — revise e clique em Salvar`);
     };
 
+    // ---------- render ----------
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500 gap-3">
+                <Loader2 className="animate-spin text-[#af1c15]" size={32} />
+                Carregando scouts...
+            </div>
+        );
+    }
+    if (!racha) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-slate-600">
+                Racha não encontrado.
+                <Button variant="outline" onClick={() => router.push('/admin/rachas')}>Voltar</Button>
+            </div>
+        );
     }
 
-    if (!racha) {
-        return <div className="min-h-screen flex items-center justify-center">Racha não encontrado</div>;
-    }
+    const status = STATUS_LABEL[racha.status] || STATUS_LABEL.open;
+    const date = new Date(racha.date_time);
+    const candidates = members.filter(m => m.is_active !== false && !scouts.some(s => s.member_id === m.id));
 
     return (
-        <main className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                            ⚡ Scouts ao Vivo
-                        </h1>
-                        <p className="text-gray-600">
-                            {racha.location} - {new Date(racha.date_time).toLocaleString('pt-BR')}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Status: <span className="font-semibold">{racha.status === 'open' ? 'Aberto' : racha.status === 'locked' ? 'Travado' : racha.status === 'in_progress' ? 'Em andamento' : 'Fechado'}</span>
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                        {racha.status !== 'closed' && (
-                            <Button variant="danger" onClick={handleCloseAndSaveRacha} disabled={saving} size="lg" className="bg-red-600 hover:bg-red-700 font-bold">
-                                <X size={20} className="mr-2" />
-                                {saving ? 'Fechando...' : 'FECHAR Racha de Hoje'}
-                            </Button>
-                        )}
-                        {racha.status !== 'open' && (
-                            <Button variant="outline" onClick={handleOpenConfirmations} disabled={saving} size="lg" className="border-blue-200 text-blue-600 hover:bg-blue-50">
-                                <RotateCcw size={16} className="mr-2" />
-                                {saving ? 'Abrindo...' : 'Reabrir Confirmações'}
-                            </Button>
-                        )}
-                        <Button onClick={() => router.push('/admin/rachas')} variant="secondary" size="lg">
-                            Voltar
-                        </Button>
-                    </div>
-                </div>
-
-
-                {/* Aviso desativado conforme pedido para focar no botão Salvar manual */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <Trophy className="text-yellow-600" size={24} />
-                        <div>
-                            <p className="text-yellow-800 font-bold text-lg">Gerenciando Scouts do Racha</p>
-                            <p className="text-yellow-700 text-sm italic">O seu ranking geral será atualizado ao clicar em Salvar.</p>
+        <div className="space-y-6 pb-28">
+            {/* Cabeçalho */}
+            <section className="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-5 md:p-8 mt-10 lg:mt-0">
+                <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#af1c15]/30 blur-3xl" />
+                <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => router.push('/admin/rachas')}
+                            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft size={16} /> Rachas
+                        </button>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tight">Scouts do Racha</h1>
+                            <span className={cn('rounded-full px-3 py-1 text-xs font-bold ring-1', status.cls)}>{status.label}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-400">
+                            <span className="inline-flex items-center gap-1.5">
+                                <CalendarDays size={15} />
+                                {date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {racha.location && <span className="inline-flex items-center gap-1.5"><MapPin size={15} />{racha.location}</span>}
                         </div>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                        <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm h-12 ${parsingPhoto ? 'bg-purple-300 text-white cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
-                            {parsingPhoto ? (
-                                <>
-                                    <Loader2 size={18} className="animate-spin" />
-                                    Lendo foto...
-                                </>
-                            ) : (
-                                <>
-                                    <Camera size={18} />
-                                    Importar Foto do Scout
-                                </>
-                            )}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                className="hidden"
-                                onChange={handlePhotoUpload}
-                                disabled={parsingPhoto}
-                            />
-                        </label>
-                        <Button onClick={handleSaveManual} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 px-8 shadow-md">
-                            <Check size={20} className="mr-2" />
-                            {saving ? 'Salvando...' : 'SALVAR SCOUTS DE HOJE'}
-                        </Button>
+
+                    <div className="grid grid-cols-5 gap-2 md:gap-3">
+                        <SummaryStat icon={<Users size={14} />} label="Jogadores" value={scouts.length} />
+                        {SCOUT_FIELDS.map(f => (
+                            <SummaryStat key={f.key} icon={<span>{f.emoji}</span>} label={f.label} value={totals[f.key]} />
+                        ))}
                     </div>
                 </div>
 
-                {/* Modal de revisão dos scouts da foto */}
-                {photoModalOpen && (
-                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-                            <div className="p-5 border-b flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold">Revisão dos Scouts da Foto</h2>
-                                    <p className="text-sm text-gray-500 mt-1">Confira os valores lidos. Apenas jogadores reconhecidos serão aplicados.</p>
+                <div className="relative mt-6 flex flex-wrap gap-2">
+                    <label className={cn(
+                        'inline-flex items-center gap-2 rounded-xl px-4 min-h-[40px] text-sm font-semibold cursor-pointer transition-colors',
+                        parsing ? 'bg-white/10 text-slate-400 cursor-wait' : 'bg-white text-slate-900 hover:bg-slate-100',
+                    )}>
+                        {parsing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                        {parsing ? 'Lendo a súmula...' : 'Importar foto da súmula'}
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} disabled={parsing} />
+                    </label>
+                    {racha.status === 'closed' ? (
+                        <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:border-white/30 min-h-[40px]"
+                            onClick={() => changeStatus('in_progress', 'Racha reaberto')} disabled={!!busy}>
+                            <RotateCcw size={15} /> Reabrir racha
+                        </Button>
+                    ) : (
+                        <Button variant="danger" size="sm" className="min-h-[40px]" onClick={() => setCloseOpen(true)} disabled={!!busy}>
+                            <Lock size={15} /> Encerrar racha
+                        </Button>
+                    )}
+                    {racha.status !== 'open' && (
+                        <Button variant="ghost" size="sm" className="text-slate-300 hover:bg-white/10 hover:text-white min-h-[40px]"
+                            onClick={() => changeStatus('open', 'Confirmações reabertas')} disabled={!!busy}>
+                            Reabrir confirmações
+                        </Button>
+                    )}
+                </div>
+            </section>
+
+            {racha.status === 'closed' && (
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                    Este racha já está encerrado. Alterações salvas aqui mudam o ranking oficial imediatamente.
+                </div>
+            )}
+
+            {/* Jogadores */}
+            <section className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 md:p-5 border-b border-slate-100">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">Jogadores presentes</h2>
+                        <p className="text-xs text-slate-500">Adicionar/remover salva na hora. Os números só valem depois de <b>Salvar</b>.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 md:w-auto">
+                        <div className="relative sm:w-56">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Buscar na lista"
+                                className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            />
+                        </div>
+                        <MemberPicker members={candidates} onPick={handleAdd} disabled={busy === 'roster'} />
+                    </div>
+                </div>
+
+                {scouts.length === 0 ? (
+                    <div className="py-16 text-center text-slate-500 space-y-1">
+                        <Users className="mx-auto text-slate-300" size={40} />
+                        <p className="font-semibold text-slate-700">Ninguém na lista ainda</p>
+                        <p className="text-sm">Adicione jogadores ou importe a foto da súmula.</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_repeat(4,9.5rem)_2.5rem] gap-3 px-5 py-2.5 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <span>Jogador</span>
+                            {SCOUT_FIELDS.map(f => <span key={f.key} className="text-center">{f.emoji} {f.label}</span>)}
+                            <span />
+                        </div>
+                        <ul className="divide-y divide-slate-100">
+                            {visibleScouts.map(s => (
+                                <li key={s.member_id} className={cn(
+                                    'grid grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_repeat(4,9.5rem)_2.5rem] items-center gap-x-3 gap-y-3 px-4 md:px-5 py-3 transition-colors',
+                                    dirtyIds.has(s.member_id) && 'bg-amber-50/60',
+                                )}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <Avatar member={s} />
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                                                {s.name}
+                                                {dirtyIds.has(s.member_id) && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Não salvo" />}
+                                            </p>
+                                            {s.position && <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{s.position}</p>}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleRemove(s)}
+                                        disabled={busy === 'roster'}
+                                        title="Remover do racha"
+                                        className="lg:order-last justify-self-end h-9 w-9 grid place-items-center rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                    <div className="col-span-2 lg:col-span-4 grid grid-cols-2 sm:grid-cols-4 lg:contents gap-2">
+                                        {SCOUT_FIELDS.map(f => (
+                                            <Stepper
+                                                key={f.key}
+                                                emoji={f.emoji}
+                                                label={f.label}
+                                                short={f.short}
+                                                tone={f.tone}
+                                                value={s[f.key]}
+                                                onMinus={() => bump(s.member_id, f.key, -1)}
+                                                onPlus={() => bump(s.member_id, f.key, 1)}
+                                            />
+                                        ))}
+                                    </div>
+                                </li>
+                            ))}
+                            {visibleScouts.length === 0 && (
+                                <li className="py-10 text-center text-sm text-slate-500">Nenhum jogador encontrado para “{search}”.</li>
+                            )}
+                        </ul>
+                    </>
+                )}
+            </section>
+
+            {/* Destaques */}
+            <section className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70 p-4 md:p-6 space-y-5">
+                <div className="flex items-center gap-2">
+                    <Trophy className="text-yellow-500" size={22} />
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">Destaques da partida</h2>
+                        <p className="text-xs text-slate-500">Toque para escolher até 3 por categoria. Os números ao lado do nome são gols/assistências de hoje.</p>
+                    </div>
+                </div>
+                <div className="grid gap-5 lg:grid-cols-2">
+                    {HIGHLIGHTS.map(cat => {
+                        const selected = highlights[cat.key];
+                        // presentes + quem já estava marcado (mesmo que não esteja na lista)
+                        const pool: { id: string; name: string; goals?: number; assists?: number }[] = [
+                            ...scouts.map(s => ({ id: s.member_id, name: s.name, goals: s.goals, assists: s.assists })),
+                            ...selected.filter(id => !scouts.some(s => s.member_id === id))
+                                .map(id => ({ id, name: memberById.get(id)?.name || 'Desconhecido' })),
+                        ];
+                        return (
+                            <div key={cat.key} className="rounded-2xl border border-slate-200 p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold text-slate-800">{cat.emoji} {cat.label}</h3>
+                                    <span className="text-xs font-semibold text-slate-400">{selected.length}/3</span>
                                 </div>
-                                <button onClick={() => setPhotoModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                    <X size={24} />
-                                </button>
-                            </div>
-                            <div className="overflow-y-auto flex-1 p-4">
-                                {parseError && (
-                                    <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 flex items-center gap-2">
-                                        <AlertCircle size={16} />
-                                        {parseError}
+                                {pool.length === 0 ? (
+                                    <p className="text-sm text-slate-400">Adicione jogadores primeiro.</p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {pool.map(p => {
+                                            const on = selected.includes(p.id);
+                                            return (
+                                                <button
+                                                    key={p.id}
+                                                    onClick={() => toggleHighlight(cat.key, p.id)}
+                                                    className={cn(
+                                                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
+                                                        on ? cn(cat.ring, 'shadow-sm') : 'border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-900',
+                                                    )}
+                                                >
+                                                    {on && <Check size={14} />}
+                                                    {p.name}
+                                                    {(p.goals || p.assists) ? (
+                                                        <span className={cn('text-[11px] tabular-nums', on ? 'opacity-70' : 'text-slate-400')}>
+                                                            {p.goals || 0}G {p.assists || 0}A
+                                                        </span>
+                                                    ) : null}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-left text-gray-500 border-b">
-                                            <th className="pb-2 font-medium">Nome (foto)</th>
-                                            <th className="pb-2 font-medium text-center">⚽</th>
-                                            <th className="pb-2 font-medium text-center">🎯</th>
-                                            <th className="pb-2 font-medium text-center">🧱</th>
-                                            <th className="pb-2 font-medium text-center">⚠️</th>
-                                            <th className="pb-2 font-medium">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {parsedPlayers.map((p, i) => (
-                                            <tr key={i} className={`border-b ${p.status === 'unmatched' ? 'bg-red-50' : 'bg-green-50'}`}>
-                                                <td className="py-2 pr-2">
-                                                    <div className="font-medium">{p.name}</div>
-                                                    {p.matched_name && p.matched_name !== p.name && (
-                                                        <div className="text-xs text-gray-400">→ {p.matched_name}</div>
-                                                    )}
-                                                </td>
-                                                <td className="py-2 text-center font-bold">{p.goals}</td>
-                                                <td className="py-2 text-center font-bold">{p.assists}</td>
-                                                <td className="py-2 text-center font-bold">{p.difficult_saves}</td>
-                                                <td className="py-2 text-center font-bold">{p.warnings}</td>
-                                                <td className="py-2">
-                                                    {p.status === 'matched' ? (
-                                                        <span className="text-green-600 text-xs font-bold flex items-center gap-1"><Check size={12} />Reconhecido</span>
-                                                    ) : (
-                                                        <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertCircle size={12} />Não encontrado</span>
-                                                    )}
-                                                </td>
-                                            </tr>
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+
+            {/* Barra de salvar */}
+            <div className="sticky bottom-4 z-30">
+                <div className={cn(
+                    'mx-auto flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl ring-1 transition-colors max-w-3xl',
+                    isDirty ? 'bg-slate-950 text-white ring-slate-800' : 'bg-white/90 backdrop-blur text-slate-500 ring-slate-200',
+                )}>
+                    <p className="text-sm">
+                        {isDirty ? (
+                            <>
+                                <span className="font-bold text-amber-400">Alterações não salvas</span>
+                                <span className="hidden sm:inline text-slate-400">
+                                    {' · '}{dirtyIds.size > 0 && `${dirtyIds.size} jogador${dirtyIds.size > 1 ? 'es' : ''}`}
+                                    {dirtyIds.size > 0 && highlightsDirty && ' + '}
+                                    {highlightsDirty && 'destaques'}
+                                </span>
+                            </>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5"><Check size={16} className="text-emerald-600" /> Tudo salvo</span>
+                        )}
+                    </p>
+                    <Button onClick={() => persist(false)} disabled={!!busy || !isDirty} className="shrink-0">
+                        {busy === 'save' ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        Salvar
+                    </Button>
+                </div>
+            </div>
+
+            {/* Confirmar encerramento */}
+            <Dialog open={closeOpen} onOpenChange={o => busy !== 'close' && setCloseOpen(o)}>
+                <DialogContent className="bg-white rounded-2xl max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Encerrar o racha?</DialogTitle>
+                        <DialogDescription>
+                            Os scouts e destaques serão salvos e o racha passa a contar no ranking oficial.
+                            {(racha.periodicity === 'weekly' || racha.periodicity === 'monthly') && ' O próximo racha será criado automaticamente.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-5 gap-2 rounded-xl bg-slate-50 p-3 text-center">
+                        <div><p className="text-lg font-black text-slate-900">{scouts.length}</p><p className="text-[10px] uppercase text-slate-500">Jogadores</p></div>
+                        {SCOUT_FIELDS.map(f => (
+                            <div key={f.key}><p className="text-lg font-black text-slate-900">{totals[f.key]}</p><p className="text-[10px] uppercase text-slate-500">{f.emoji}</p></div>
+                        ))}
+                    </div>
+                    {HIGHLIGHTS.some(c => highlights[c.key].length === 0) && (
+                        <p className="flex items-center gap-2 text-sm text-amber-700">
+                            <AlertTriangle size={16} /> Algum destaque ainda não foi escolhido.
+                        </p>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => setCloseOpen(false)} disabled={busy === 'close'}>Cancelar</Button>
+                        <Button variant="danger" onClick={() => persist(true)} disabled={busy === 'close'}>
+                            {busy === 'close' ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+                            Salvar e encerrar
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Revisão da foto */}
+            <Dialog open={!!parsedRows} onOpenChange={o => !o && setParsedRows(null)}>
+                <DialogContent className="bg-white rounded-2xl max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0">
+                    <DialogHeader className="p-5 border-b">
+                        <DialogTitle>Revisar leitura da súmula</DialogTitle>
+                        <DialogDescription>
+                            Confira os números e vincule cada nome a um integrante. Quem não estiver na lista será adicionado ao racha.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-y-auto flex-1 p-3 md:p-5 space-y-2">
+                        {parsedRows?.map((row, i) => {
+                            const setRow = (patch: Partial<ParsedRow>) =>
+                                setParsedRows(prev => prev!.map((r, j) => j === i ? { ...r, ...patch } : r));
+                            const notPresent = row.member_id && !scouts.some(s => s.member_id === row.member_id);
+                            return (
+                                <div key={i} className={cn(
+                                    'rounded-xl border p-3 space-y-3',
+                                    !row.include ? 'border-slate-200 bg-slate-50 opacity-60' : row.member_id ? 'border-emerald-200' : 'border-red-200 bg-red-50/40',
+                                )}>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={row.include}
+                                            onChange={e => setRow({ include: e.target.checked })}
+                                            className="h-4 w-4 accent-emerald-600"
+                                        />
+                                        <span className="text-sm text-slate-500">Na foto:</span>
+                                        <span className="font-semibold text-slate-900">“{row.photoName}”</span>
+                                        <ChevronDown size={14} className="-rotate-90 text-slate-400" />
+                                        <select
+                                            value={row.member_id || ''}
+                                            onChange={e => setRow({ member_id: e.target.value || null, include: !!e.target.value })}
+                                            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm flex-1 min-w-[10rem]"
+                                        >
+                                            <option value="">— escolher integrante —</option>
+                                            <optgroup label="Presentes">
+                                                {scouts.map(s => <option key={s.member_id} value={s.member_id}>{s.name}</option>)}
+                                            </optgroup>
+                                            <optgroup label="Outros integrantes">
+                                                {candidates.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                            </optgroup>
+                                        </select>
+                                        {notPresent && <span className="text-[11px] font-bold uppercase text-sky-700 bg-sky-50 rounded px-1.5 py-0.5">será adicionado</span>}
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {SCOUT_FIELDS.map(f => (
+                                            <label key={f.key} className="flex flex-col gap-1 text-[11px] font-semibold text-slate-500">
+                                                <span>{f.emoji} {f.label}</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    inputMode="numeric"
+                                                    value={row[f.key]}
+                                                    onChange={e => setRow({ [f.key]: Math.max(0, parseInt(e.target.value) || 0) } as any)}
+                                                    className="h-9 rounded-lg border border-slate-200 px-2 text-center text-base font-bold text-slate-900"
+                                                />
+                                            </label>
                                         ))}
-                                    </tbody>
-                                </table>
-                                {parsedPlayers.filter(p => p.status === 'unmatched').length > 0 && (
-                                    <p className="text-xs text-red-500 mt-3">
-                                        * Jogadores não encontrados serão ignorados. Adicione-os manualmente se necessário.
-                                    </p>
-                                )}
-                            </div>
-                            <div className="p-4 border-t flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => setPhotoModalOpen(false)}>Cancelar</Button>
-                                <Button
-                                    onClick={handleApplyParsed}
-                                    disabled={parsedPlayers.filter(p => p.status === 'matched').length === 0}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                >
-                                    <Check size={16} className="mr-2" />
-                                    Aplicar {parsedPlayers.filter(p => p.status === 'matched').length} jogadores
-                                </Button>
-                            </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="p-4 border-t flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
+                        <p className="text-xs text-slate-500">
+                            Os valores substituem os atuais desses jogadores. Nada é salvo até você clicar em Salvar.
+                        </p>
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={() => setParsedRows(null)}>Cancelar</Button>
+                            <Button onClick={applyParsed} disabled={busy === 'roster' || !parsedRows?.some(r => r.include && r.member_id)}>
+                                <Check size={16} />
+                                Aplicar {parsedRows?.filter(r => r.include && r.member_id).length || 0}
+                            </Button>
                         </div>
                     </div>
-                )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
 
-                <Card>
-                    <CardHeader className="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div className="flex-1">
-                            <CardTitle>Participantes do Racha ({scouts.length})</CardTitle>
-                            <p className="text-xs text-slate-500 mt-1">Apenas jogadores que confirmaram presença no site.</p>
-                        </div>
+// ---------- componentes ----------
 
-                        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                            <div className="relative w-full sm:w-64">
-                                <Input
-                                    placeholder="Buscar na lista..."
-                                    value={searchTerm}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                                    className="pl-4"
-                                />
-                            </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <Select value={addMemberId} onValueChange={setAddMemberId}>
-                                    <SelectTrigger className="w-full sm:w-48">
-                                        <SelectValue placeholder="Adicionar jogador..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {members
-                                            .filter(m => !scouts.some(s => s.member_id === m.id))
-                                            .map(m => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                    </SelectContent>
-                                </Select>
-                                <Button
-                                    onClick={handleAddPlayerManually}
-                                    disabled={!addMemberId}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold shrink-0"
-                                    title="Adicionar jogador à lista de presentes"
-                                >
-                                    <Plus size={16} className="mr-1" />
-                                    Adicionar
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Jogador</TableHead>
-                                        <TableHead className="text-center">⚽ Gols</TableHead>
-                                        <TableHead className="text-center">🎯 Assistências</TableHead>
-                                        <TableHead className="text-center">🧱 Defesas</TableHead>
-                                        <TableHead className="text-center">⚠️ Advertências</TableHead>
-                                        <TableHead className="w-10"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredScouts.map((scout) => {
-                                        const member = members.find(m => m.id === scout.member_id);
-                                        // Permitir edição mesmo se fechado (conforme solicitado pelo user)
-                                        const isReadonly = false;
+function SummaryStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+    return (
+        <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-2 py-2.5 md:px-4 md:py-3 text-center min-w-0">
+            <p className="text-xl md:text-3xl font-black tabular-nums">{value}</p>
+            <p className="flex items-center justify-center gap-1 text-[10px] md:text-[11px] uppercase tracking-wide text-slate-400 truncate">
+                {icon}<span className="hidden sm:inline truncate">{label}</span>
+            </p>
+        </div>
+    );
+}
 
-                                        return (
-                                            <TableRow key={scout.member_id}>
-                                                <TableCell className="font-medium">
-                                                    {member?.name || 'Carregando...'}
-                                                    <div className="flex items-center gap-1">
-                                                        {member?.position && (
-                                                            <span className="text-[10px] text-gray-400 uppercase font-bold">{member.position}</span>
-                                                        )}
+function Avatar({ member }: { member: { name: string; photo_url: string | null } }) {
+    return member.photo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={member.photo_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white shadow" />
+    ) : (
+        <div className="h-10 w-10 shrink-0 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-bold">
+            {initials(member.name)}
+        </div>
+    );
+}
 
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'goals', -1)}
-                                                            disabled={isReadonly || scout.goals <= 0}
-                                                            title="Remover"
-                                                        >
-                                                            <Minus size={16} />
-                                                        </Button>
-                                                        <span className="font-bold text-lg min-w-[2rem] text-center">
-                                                            {scout.goals}
-                                                        </span>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'goals', 1)}
-                                                            disabled={isReadonly}
-                                                            title="Adicionar"
-                                                        >
-                                                            <Plus size={16} />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'assists', -1)}
-                                                            disabled={isReadonly || scout.assists <= 0}
-                                                            title="Remover"
-                                                        >
-                                                            <Minus size={16} />
-                                                        </Button>
-                                                        <span className="font-bold text-lg min-w-[2rem] text-center">
-                                                            {scout.assists}
-                                                        </span>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'assists', 1)}
-                                                            disabled={isReadonly}
-                                                            title="Adicionar"
-                                                        >
-                                                            <Plus size={16} />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'difficult_saves', -1)}
-                                                            disabled={isReadonly || scout.difficult_saves <= 0}
-                                                            title="Remover"
-                                                        >
-                                                            <Minus size={16} />
-                                                        </Button>
-                                                        <span className="font-bold text-lg min-w-[2rem] text-center">
-                                                            {scout.difficult_saves}
-                                                        </span>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'difficult_saves', 1)}
-                                                            disabled={isReadonly}
-                                                            title="Adicionar"
-                                                        >
-                                                            <Plus size={16} />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'warnings', -1)}
-                                                            disabled={isReadonly || scout.warnings <= 0}
-                                                            title="Remover"
-                                                        >
-                                                            <Minus size={16} />
-                                                        </Button>
-                                                        <span className="font-bold text-lg min-w-[2rem] text-center">
-                                                            {scout.warnings}
-                                                        </span>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => updateScout(scout.member_id, 'warnings', 1)}
-                                                            disabled={isReadonly}
-                                                            title="Adicionar"
-                                                        >
-                                                            <Plus size={16} />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => handleRemovePlayer(scout.member_id)}
-                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                                                        title="Remover jogador da lista"
-                                                    >
-                                                        <X size={16} />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        <div className="p-4 border-t flex justify-end bg-slate-50">
-                            <Button onClick={handleSaveManual} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 shadow-sm">
-                                <Check size={18} className="mr-2" />
-                                {saving ? 'Salvando...' : 'SALVAR SCOUTS DE HOJE'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-                {/* Highlights Selection */}
-                <Card className="mt-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Trophy className="text-yellow-500" />
-                            Destaques da Partida
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none">🥇 Top 1</label>
-                                    <Select
-                                        value={highlights.top1_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top1_id: value })}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 1 Extra</label>
-                                    <Select
-                                        value={highlights.top1_extra_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top1_extra_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 1..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 1 Extra 2</label>
-                                    <Select
-                                        value={highlights.top1_extra2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top1_extra2_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 1..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none">🥈 Top 2</label>
-                                    <Select
-                                        value={highlights.top2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top2_id: value })}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 2 Extra</label>
-                                    <Select
-                                        value={highlights.top2_extra_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top2_extra_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 2..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic font-medium">+ Top 2 Extra 2</label>
-                                    <Select
-                                        value={highlights.top2_extra2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top2_extra2_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 2..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none">🥉 Top 3</label>
-                                    <Select
-                                        value={highlights.top3_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top3_id: value })}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic">+ Top 3 Extra</label>
-                                    <Select
-                                        value={highlights.top3_extra_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top3_extra_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Top 3..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic">+ Top 3 Extra 2</label>
-                                    <Select
-                                        value={highlights.top3_extra2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, top3_extra2_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Top 3..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none">👮 Xerife</label>
-                                    <Select
-                                        value={highlights.sheriff_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, sheriff_id: value })}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic">+ Xerife Extra</label>
-                                    <Select
-                                        value={highlights.sheriff_extra_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, sheriff_extra_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Segundo Xerife..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 italic">+ Xerife Extra 2</label>
-                                    <Select
-                                        value={highlights.sheriff_extra2_id}
-                                        onValueChange={(value) => setHighlights({ ...highlights, sheriff_extra2_id: value })}
-                                    >
-                                        <SelectTrigger className="border-dashed"><SelectValue placeholder="Terceiro Xerife..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhum</SelectItem>
-                                            {members.map((m) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t flex justify-end">
-                            <Button
-                                onClick={handleSaveHighlightsOnly}
-                                disabled={saving}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
-                            >
-                                <Trophy size={18} className="mr-2" />
-                                {saving ? 'Atualizando...' : 'Salvar/Atualizar Destaques'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+function Stepper({ emoji, label, short, tone, value, onMinus, onPlus }: {
+    emoji: string; label: string; short: string; tone: string; value: number; onMinus: () => void; onPlus: () => void;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-1 rounded-xl bg-slate-50 p-1 lg:bg-transparent lg:justify-center">
+            <span className="lg:hidden pl-1.5 text-xs font-semibold text-slate-500 whitespace-nowrap">{emoji} <span className="sr-only sm:not-sr-only">{short}</span></span>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={onMinus}
+                    disabled={value <= 0}
+                    aria-label={`Remover ${label}`}
+                    className="h-9 w-9 grid place-items-center rounded-lg bg-white ring-1 ring-slate-200 text-slate-500 hover:text-red-600 hover:ring-red-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                >
+                    <Minus size={16} />
+                </button>
+                <span className={cn('w-8 text-center text-lg font-black tabular-nums', value > 0 ? 'text-slate-900' : 'text-slate-300')}>{value}</span>
+                <button
+                    onClick={onPlus}
+                    aria-label={`Adicionar ${label}`}
+                    className={cn('h-9 w-9 grid place-items-center rounded-lg shadow-sm active:scale-95 transition', tone)}
+                >
+                    <Plus size={16} />
+                </button>
             </div>
-        </main>
+        </div>
+    );
+}
+
+function MemberPicker({ members, onPick, disabled }: { members: Member[]; onPick: (id: string) => void; disabled?: boolean }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDoc = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, [open]);
+
+    const list = useMemo(() => {
+        const n = normalizeName(q);
+        return (n ? members.filter(m => normalizeName(m.name).includes(n)) : members).slice(0, 50);
+    }, [members, q]);
+
+    return (
+        <div ref={ref} className="relative">
+            <Button onClick={() => setOpen(o => !o)} disabled={disabled} variant="black" size="sm" className="w-full sm:w-auto min-h-[40px]">
+                {disabled ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                Adicionar jogador
+            </Button>
+            {open && (
+                <div className="absolute right-0 z-40 mt-2 w-full sm:w-72 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden">
+                    <div className="p-2 border-b border-slate-100">
+                        <input
+                            autoFocus
+                            value={q}
+                            onChange={e => setQ(e.target.value)}
+                            placeholder="Digite o nome..."
+                            className="w-full h-9 rounded-lg bg-slate-50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                    </div>
+                    <ul className="max-h-72 overflow-y-auto py-1">
+                        {list.map(m => (
+                            <li key={m.id}>
+                                <button
+                                    onClick={() => { onPick(m.id); setOpen(false); setQ(''); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                                >
+                                    <span className="h-7 w-7 shrink-0 rounded-full bg-slate-100 text-slate-600 grid place-items-center text-[10px] font-bold">{initials(m.name)}</span>
+                                    <span className="truncate font-medium text-slate-800">{m.name}</span>
+                                    {m.position && <span className="ml-auto text-[10px] uppercase text-slate-400">{m.position}</span>}
+                                </button>
+                            </li>
+                        ))}
+                        {list.length === 0 && <li className="px-3 py-6 text-center text-sm text-slate-400">Ninguém encontrado</li>}
+                    </ul>
+                </div>
+            )}
+        </div>
     );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { countTitlesByMember, loadChampionTeams } from '@/lib/championship-winner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import NextImage from 'next/image';
@@ -145,29 +146,7 @@ export default function UserProfilePage() {
         const sheriff = ((rachasAsSheriff || []).filter(r => !adjustmentIds.has(r.id)).length) + manualSheriff;
 
         // Títulos de campeonato
-        let championships = 0;
-        const { data: completedChamps } = await supabase.from('championships').select('id').eq('status', 'completed');
-        if (completedChamps && completedChamps.length > 0) {
-            for (const champ of completedChamps) {
-                const [{ data: champMatches }, { data: teams }] = await Promise.all([
-                    supabase.from('championship_matches').select('team_a_id, team_b_id, score_a, score_b').eq('championship_id', champ.id).eq('status', 'completed'),
-                    supabase.from('teams').select('id, team_members(member_id)').eq('championship_id', champ.id),
-                ]);
-                if (!champMatches || !teams || teams.length === 0) continue;
-                const standings = teams.map((team: any) => {
-                    let pts = 0;
-                    for (const m of champMatches) {
-                        const isA = m.team_a_id === team.id, isB = m.team_b_id === team.id;
-                        if (!isA && !isB) continue;
-                        const mine = isA ? m.score_a : m.score_b, theirs = isA ? m.score_b : m.score_a;
-                        if (mine > theirs) pts += 3; else if (mine === theirs) pts += 1;
-                    }
-                    return { pts, members: (team.team_members || []).map((tm: any) => tm.member_id) };
-                });
-                standings.sort((a: any, b: any) => b.pts - a.pts);
-                if (standings[0]?.members.includes(memberId)) championships += 1;
-            }
-        }
+        const championships = countTitlesByMember(await loadChampionTeams(supabase))[memberId] || 0;
 
         setStats({ goals, assists, saves, warnings, matches, top1, top2, top3, sheriff, championships });
     };

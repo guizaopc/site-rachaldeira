@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConditionalNavbar } from "@/components/layout/conditional-navbar";
 import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import { Toaster } from "sonner";
+import { TicketButton } from "@/components/ticket-button";
 
 
 export const dynamic = 'force-dynamic';
@@ -113,6 +114,7 @@ export default async function RootLayout({
                     {children}
                 </div>
                 <ConditionalFooter />
+                <TicketButton isLoggedIn={!!user} />
                 <Toaster />
             </body>
         </html>

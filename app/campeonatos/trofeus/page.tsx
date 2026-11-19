@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { Trophy, Star, Target, Shield, Utensils, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AWARD_TYPES, AWARDS_SELECT, groupAwards, type AwardType } from '@/lib/championship-awards';
+import { loadChampionTeams } from '@/lib/championship-winner';
 
 function AwardBadge({ emoji, label, member, bg, border, labelColor }: {
     emoji: string;
@@ -76,74 +78,27 @@ export default async function TrofeusPage() {
         .from('championships')
         .select(`
             *,
-            craque:craque_id(id, name, photo_url, position),
-            xerifao:xerifao_id(id, name, photo_url, position),
-            paredao:paredao_id(id, name, photo_url, position),
-            garcom:garcom_id(id, name, photo_url, position),
-            artilheiro:artilheiro_id(id, name, photo_url, position),
-            champion_team:champion_team_id(id, name, logo_url)
+            ${AWARDS_SELECT}
         `)
         .eq('status', 'completed')
         .order('start_date', { ascending: false });
 
-    // Buscar os times campeões (1º lugar) para cada campeonato
-    const championsMap: Record<string, any> = {};
-    if (championships && championships.length > 0) {
-        for (const camp of championships) {
-            // Se houver campeão definido manualmente, usa ele
-            if ((camp as any).champion_team) {
-                championsMap[camp.id] = (camp as any).champion_team;
-                continue;
-            }
+    // Time campeão de cada campeonato (manual > final > classificação)
+    const championsMap = await loadChampionTeams(supabase);
 
-            const { data: matches } = await supabase
-                .from('championship_matches')
-                .select('*, team_a:team_a_id(id, name, logo_url), team_b:team_b_id(id, name, logo_url)')
-                .eq('championship_id', camp.id)
-                .eq('status', 'completed');
+    const awardsByChamp: Record<string, ReturnType<typeof groupAwards>> = {};
+    for (const c of championships || []) awardsByChamp[c.id] = groupAwards((c as any).awards);
 
-            if (!matches || matches.length === 0) continue;
+    const totalAwards = Object.values(awardsByChamp).reduce(
+        (acc, g) => acc + Object.values(g).reduce((n, list) => n + list.length, 0), 0);
 
-            const { data: teams } = await supabase
-                .from('teams')
-                .select('id, name, logo_url, team_members(members(id, name))')
-                .eq('championship_id', camp.id);
-
-            if (!teams) continue;
-
-            // Calcular pontuação
-            const standings = teams.map((team: any) => {
-                const teamMatches = matches.filter((m: any) =>
-                    m.team_a_id === team.id || m.team_b_id === team.id
-                );
-
-                let points = 0, wins = 0, goalsFor = 0, goalsAgainst = 0;
-                teamMatches.forEach((match: any) => {
-                    const isA = match.team_a_id === team.id;
-                    const myGoals = isA ? match.score_a : match.score_b;
-                    const theirGoals = isA ? match.score_b : match.score_a;
-                    goalsFor += myGoals ?? 0;
-                    goalsAgainst += theirGoals ?? 0;
-                    if (myGoals > theirGoals) { points += 3; wins++; }
-                    else if (myGoals === theirGoals) points += 1;
-                });
-
-                return { ...team, points, wins, goalDiff: goalsFor - goalsAgainst };
-            });
-
-            standings.sort((a: any, b: any) =>
-                b.points - a.points || b.wins - a.wins || b.goalDiff - a.goalDiff
-            );
-
-            if (standings.length > 0) {
-                championsMap[camp.id] = standings[0];
-            }
-        }
-    }
-
-    const totalAwards = championships?.reduce((acc, c) => {
-        return acc + [c.craque, c.artilheiro, c.paredao, c.garcom, c.xerifao].filter(Boolean).length;
-    }, 0) ?? 0;
+    const badgeStyle: Record<AwardType, { bg: string; border: string; labelColor: string }> = {
+        craque: { bg: 'bg-yellow-50', border: 'border-yellow-100', labelColor: 'text-yellow-700' },
+        artilheiro: { bg: 'bg-green-50', border: 'border-green-100', labelColor: 'text-green-700' },
+        paredao: { bg: 'bg-blue-50', border: 'border-blue-100', labelColor: 'text-blue-700' },
+        garcom: { bg: 'bg-purple-50', border: 'border-purple-100', labelColor: 'text-purple-700' },
+        xerifao: { bg: 'bg-red-50', border: 'border-red-100', labelColor: 'text-red-700' },
+    };
 
     return (
         <main className="min-h-screen bg-gray-50">
@@ -196,7 +151,8 @@ export default async function TrofeusPage() {
                     <div className="space-y-8">
                         {championships.map((camp, index) => {
                             const champion = championsMap[camp.id];
-                            const hasAwards = camp.craque || camp.artilheiro || camp.paredao || camp.garcom || camp.xerifao;
+                            const campAwards = awardsByChamp[camp.id];
+                            const hasAwards = AWARD_TYPES.some(a => campAwards[a.id].length > 0);
                             const year = new Date(camp.start_date).getFullYear();
 
                             return (
@@ -268,21 +224,9 @@ export default async function TrofeusPage() {
                                             <div className="mt-6 pt-6 border-t border-gray-100">
                                                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Prêmios Individuais</p>
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                                    {camp.craque && (
-                                                        <AwardBadge emoji="👑" label="Craque" member={camp.craque} bg="bg-yellow-50" border="border-yellow-100" labelColor="text-yellow-700" />
-                                                    )}
-                                                    {camp.artilheiro && (
-                                                        <AwardBadge emoji="⚽" label="Artilheiro" member={camp.artilheiro} bg="bg-green-50" border="border-green-100" labelColor="text-green-700" />
-                                                    )}
-                                                    {camp.paredao && (
-                                                        <AwardBadge emoji="🧤" label="Paredão" member={camp.paredao} bg="bg-blue-50" border="border-blue-100" labelColor="text-blue-700" />
-                                                    )}
-                                                    {camp.garcom && (
-                                                        <AwardBadge emoji="🍽️" label="Garçom" member={camp.garcom} bg="bg-purple-50" border="border-purple-100" labelColor="text-purple-700" />
-                                                    )}
-                                                    {camp.xerifao && (
-                                                        <AwardBadge emoji="👮" label="Xerifão" member={camp.xerifao} bg="bg-red-50" border="border-red-100" labelColor="text-red-700" />
-                                                    )}
+                                                    {AWARD_TYPES.flatMap(a => campAwards[a.id].map(member => (
+                                                        <AwardBadge key={`${a.id}-${member.id}`} emoji={a.emoji} label={a.label} member={{ name: member.name, photo_url: member.photo_url ?? undefined }} {...badgeStyle[a.id]} />
+                                                    )))}
                                                 </div>
                                             </div>
                                         )}

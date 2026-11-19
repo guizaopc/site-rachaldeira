@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, CalendarDays, Trophy, Home, LayoutDashboard, Shuffle, Image as ImageIcon, Menu, X, ChevronRight, Target, Bell, ClipboardCheck } from 'lucide-react';
+import { Users, CalendarDays, Trophy, Home, LayoutDashboard, Shuffle, Image as ImageIcon, Menu, X, ChevronRight, Target, Bell, ClipboardCheck, ClipboardList, MessageSquare } from 'lucide-react';
 
 interface AdminClientLayoutProps {
     children: React.ReactNode;
@@ -28,6 +28,8 @@ export default function AdminClientLayout({
         { href: '/admin/sorteio', label: 'Sorteio', icon: Shuffle },
         { href: '/admin/notificacoes', label: 'Notificações', icon: Bell },
         { href: '/admin/presenca', label: 'Presença', icon: ClipboardCheck },
+        { href: '/admin/reunioes', label: 'Pautas de Reunião', icon: ClipboardList },
+        { href: '/admin/tickets', label: 'Tickets', icon: MessageSquare },
     ];
 
     const navItems = allNavItems;
@@ -82,7 +84,8 @@ export default function AdminClientLayout({
 
                 <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
-                        const isActive = pathname === item.href;
+                        const isActive = pathname === item.href ||
+                            (item.href === '/admin/reunioes' && pathname.startsWith('/admin/reunioes/'));
                         const Icon = item.icon;
                         return (
                             <Link
